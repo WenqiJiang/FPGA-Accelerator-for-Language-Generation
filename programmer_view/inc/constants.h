@@ -12,7 +12,7 @@
 
 // == RNN layers ===============================================================
 #define RNN_STATE_SIZE      128 // state length
-#define RNN_INPUT_SIZE      100 // input of RNN layer, e.g. word vector
+#define RNN_INPUT_SIZE      WORD_SIZE // input of RNN layer, e.g. word vector
 
 // RNN layer dimension:
 //        input_state: BATCH_SIZE * RNN_INPUT_SIZE (None * 100)
@@ -29,8 +29,8 @@
 //                       bias
 
 // == Fully-Connected layers ===================================================
-#define FC_INPUT_SIZE   128   // same as STATE_SIZE
-#define FC_OUTPUT_SIZE  6144 // say, vocabulary number
+#define FC_INPUT_SIZE   RNN_STATE_SIZE   // same as STATE_SIZE
+#define FC_OUTPUT_SIZE  WORD_NUM // say, vocabulary number
 
 // FC layer dimension:
 //      input_feature_map: BATCH_SIZE * FC_INPUT_SIZE (None * 128)
@@ -44,15 +44,11 @@
 //                               bias
 
 // == Softmax layers ===========================================================
-#define SM_CLASS_SIZE   6144 // how many classes
+#define SM_CLASS_SIZE   WORD_NUM // how many classes
 
 // Softmax layer dimension:
 //    input_feature_map: SM_BATCH_SIZE * SM_CLASS_SIZE
 //    output_feature_map: SM_BATCH_SIZE * SM_CLASS_SIZE
 
-// Dateset -> 1,000 samples, each of them has 50 words
-#define SAMPLE_NUM 1000
-#define SAMPLE_LEN 50
-
 #define BATCH_SIZE 64
-#define COMPUTE_TIME SAMPLE_NUM / BATCH_SIZE
+#define COMPUTE_TIME 1000 

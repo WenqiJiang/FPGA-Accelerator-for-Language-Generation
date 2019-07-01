@@ -19,3 +19,6 @@ void free_2d_array(DT** arr, IT row, IT col);
 
 template <typename DT, typename IT>
 void transpose(DT* src, DT* dst, const IT row, const IT col);
+
+// given a sequence with a batch size, print the first batch
+void print_sequence(LDATA_T* sequence);

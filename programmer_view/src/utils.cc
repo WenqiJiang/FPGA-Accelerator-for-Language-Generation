@@ -3,6 +3,8 @@
 #include <cstdio>
 #include <stdlib.h>
 
+#include "constants.h"
+
 template <>
 void load_data(char const* fname, FDATA_T* array, LDATA_T length) {
 
@@ -107,3 +109,12 @@ void transpose(FDATA_T* src, FDATA_T* dst, const IDATA_T ROW, const IDATA_T COL)
       dst[col * ROW + row] = src[row * COL + col];
   }
 }  
+
+void print_sequence(LDATA_T sequence[BATCH_SIZE * COMPUTE_TIME]) {
+  // given a sequence with a batch size, print the first batch
+  
+  for (LDATA_T i = 0; i < COMPUTE_TIME; i++) {
+    LDATA_T idx = i * BATCH_SIZE;
+    printf("%d\t", sequence[idx]);
+  }
+}

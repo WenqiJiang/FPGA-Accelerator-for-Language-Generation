@@ -19,37 +19,16 @@ endif
 
 TARGET = c-rnn
 
-all: check-env release
-
-check-env:
-ifndef XILINX_VIVADO
-	$(error XILINX_VIVADO is undefined)
-endif
+all: release
 
 CC = clang++
 
 INCDIR :=
 INCDIR += -I../inc
-INCDIR += -I$(XILINX_VIVADO)/include
-
-# For Windows machines: provide the path to your Vivado installation
-#INCDIR += -IC:/Xilinx/Vivado/2018.3/include
 
 CXX_FLAGS :=
 CXX_FLAGS += -Wall
-
-# Use the following flags to compile "hls_math.h" for fixed-point arithmetic.
-CXX_FLAGS += -Wno-unknown-pragmas # disable HLS pragmas in PV
-CXX_FLAGS += -Wno-unused-label # disable HLS labels in PV
-CXX_FLAGS += -Wno-unused-variable
-#CXX_FLAGS += -pedantic
-
-# Fixed point configuration. Those variables should be specified on the command
-# line, for example:
-# FXD_W_LENGTH=32 FXD_I_LENGTH=16 make
-# If the variables are not specified, there should be a default in 'inc/types.h'.
-CXX_FLAGS += -DFXD_W_LENGTH=$(FXD_W_LENGTH)
-CXX_FLAGS += -DFXD_I_LENGTH=$(FXD_I_LENGTH)
+CXX_FLAGS += -pedantic
 
 LD_FLAGS :=
 
@@ -77,27 +56,27 @@ VPATH :=
 VPATH += ../inc
 VPATH += ../src
 
+# activation.h	config.h	constants.h	fc.h		init.h		rnn.h		softmax.h	types.h		utils.h		wrapper.h
 CXX_SOURCES :=
-CXX_SOURCES += fc.cc
-#CXX_SOURCES += fc_hls2.cc
-CXX_SOURCES += rnn.cc
-#CXX_SOURCES += rnn_hls2.cc
-CXX_SOURCES += init.cc
-CXX_SOURCES += main.cc
-CXX_SOURCES += utils.cc
-CXX_SOURCES += softmax.cc
 CXX_SOURCES += activation.cc
+CXX_SOURCES += init.cc
+CXX_SOURCES += fc.cc
+CXX_SOURCES += rnn.cc
+CXX_SOURCES += main.cc
+CXX_SOURCES += softmax.cc
+CXX_SOURCES += utils.cc
 CXX_SOURCES += wrapper.cc
 
 CXX_HEADERS :=
+CXX_HEADERS += activation.h
+CXX_HEADERS += init.h
+CXX_HEADERS += constants.h
+CXX_HEADERS += config.h
 CXX_HEADERS += fc.h
 CXX_HEADERS += rnn.h
-CXX_HEADERS += init.h
-CXX_HEADERS += types.h
-CXX_HEADERS += config.h
 CXX_HEADERS += softmax.h
-CXX_HEADERS += constants.h
-CXX_HEADERS += activation.h
+CXX_HEADERS += types.h
+CXX_HEADERS += utils.h
 CXX_HEADERS += wrapper.h
 
 .SUFFIXES: .cc .h .o
@@ -112,17 +91,17 @@ $(TARGET): $(CXX_OBJECTS)
 .cc.o:
 	$(QUIET_C)$(CC) $(CXX_FLAGS) ${INCDIR} -c $<
 
-run-debug: debug
+rnn-debug: debug
 	$(QUIET_RUN)./$(TARGET)
-.PHONY: run-debug
+.PHONY: rnn-debug
 
-run-release: release
+rnn-release: release
 	$(QUIET_RUN)./$(TARGET)
-.PHONY: run-release
+.PHONY: rnn-release
 
 run-profile: profile
 	$(QUIET_RUN)./$(TARGET)
-.PHONY: run-profile
+.PHONY: rnn-profile
 
 valgrind: debug
 	$(QUIET_RUN)valgrind -v --leak-check=full --max-stackframe=16777216 ./$(TARGET)
@@ -161,3 +140,8 @@ endif
 clean:
 	$(QUIET_CLEAN)rm -rf *.o $(TARGET) *.svg *.pdf *.dot *.sum
 .PHONY: clean
+
+# clear logs as well
+ultraclean:
+	$(QUIET_CLEAN)rm -rf *.o $(TARGET) *.log *.out *.svg *.pdf *.dot *.sum
+.PHONY: ultraclean

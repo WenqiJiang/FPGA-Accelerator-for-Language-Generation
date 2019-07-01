@@ -61,7 +61,7 @@ void softmax (FDATA_T* input_feature_map, FDATA_T* output_probability_distributi
 template<>
 void argmax(FDATA_T* input, IDATA_T* result) {
     // input: a probability distribution (BATCH_SIZE, SM_OUTPUT_SIZE)
-    // result: the index of each output (SM_OUTPUT_SIZE, )
+    // result: the index of each output (BATCH_SIZE, )
     for (LDATA_T batch_index = 0; batch_index < BATCH_SIZE; batch_index++) {
         LDATA_T max_index = 0;
         FDATA_T max_val = input[batch_index * SM_CLASS_SIZE];

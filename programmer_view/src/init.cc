@@ -24,3 +24,19 @@ void zero_init(FDATA_T* input, LDATA_T length)
         input[idx] = 0;
 }
 
+// template<typename DT, typename LT>
+// void init_array(DT* array, DT value, LT length) {
+  // for (LDATA_T i = 0; i < length; i++) {
+    // array[i] = value;
+  // }
+// }
+void init_float_array(FDATA_T* array, FDATA_T value, LDATA_T length) {
+  for (LDATA_T i = 0; i < length; i++) {
+    array[i] = value;
+  }
+}
+void init_int_array(IDATA_T* array, IDATA_T value, LDATA_T length) {
+  for (LDATA_T i = 0; i < length; i++) {
+    array[i] = value;
+  }
+}

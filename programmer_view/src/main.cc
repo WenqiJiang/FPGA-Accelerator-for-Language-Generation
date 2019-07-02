@@ -42,6 +42,8 @@ int main(int argc, char *argv[]) {
       (FDATA_T*) MALLOC(sizeof(FDATA_T) * BATCH_SIZE * RNN_STATE_SIZE);
   init_float_array (rnn_state0, 0, BATCH_SIZE * RNN_STATE_SIZE);
   init_float_array (rnn_state1, 0, BATCH_SIZE * RNN_STATE_SIZE);
+  load_data<FDATA_T, LDATA_T>(INIT_STATES_FILE, rnn_state0, 
+                              BATCH_SIZE * RNN_STATE_SIZE);
 
   // FC
   FDATA_T* fc_bias = 
@@ -92,13 +94,22 @@ int main(int argc, char *argv[]) {
   for (LDATA_T compute_time = 0; compute_time < COMPUTE_TIME / 2; 
        compute_time++) {
     
-    // Use ping-ping buffer
+    // Use ping-pong buffer
+    LDATA_T result_idx_all_idx = 2 * compute_time * BATCH_SIZE;
     wrapper_rnn_fc(
         word_embedding, rnn_kernel, rnn_recurrent_kernel, rnn_bias, 
         fc_kernel, fc_bias, /* input_word_idx = */result_idx_one_step, 
         rnn_input_state_cache, /* rnn_last_state = */rnn_state0, 
         /* rnn_output_state = */rnn_state1, fc_output_cache,
-        /* result_idx = */result_idx_one_step);
+        /* result_idx = */result_idx_all + result_idx_all_idx);
+
+    result_idx_all_idx = (2 * compute_time + 1) * BATCH_SIZE;
+    wrapper_rnn_fc(
+        word_embedding, rnn_kernel, rnn_recurrent_kernel, rnn_bias, 
+        fc_kernel, fc_bias, /* input_word_idx = */result_idx_one_step, 
+        rnn_input_state_cache, /* rnn_last_state = */rnn_state1, 
+        /* rnn_output_state = */rnn_state0, fc_output_cache,
+        /* result_idx = */result_idx_all + result_idx_all_idx);
   }
 
 #define VERBOSE

@@ -1,0 +1,1 @@
+This folder is the programmer view of text generation. We provide 2 versions: fixed point and floating point. Notice that the former one need the environment of SDSoC, while the later one simply relies on the basic C++ environment.

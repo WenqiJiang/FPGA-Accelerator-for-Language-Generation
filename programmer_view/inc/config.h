@@ -11,5 +11,6 @@ char const* ORG_SEQ_FILE           = "../../datasets/org_seq.txt";
 char const* RNN_RESULT_FILE        = "../../datasets/rnn_result.txt";
 char const* ACTUAL_RESULT_FILE     = "../../datasets/actual_result.txt";
 
-char const* INIT_STATES_FILE       = "../init_states.txt";
+char const* INIT_STATES_FILE       = "../../datasets/init_states.txt";
+char const* INIT_WORD_IDX_FILE     = "../../datasets/actual_result.txt";
 

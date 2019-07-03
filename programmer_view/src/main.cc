@@ -57,12 +57,17 @@ int main(int argc, char *argv[]) {
       (FDATA_T*) MALLOC(sizeof(FDATA_T) * BATCH_SIZE * FC_OUTPUT_SIZE);
 
   // result indexes of one single time step and all steps
-  IDATA_T* result_idx_one_step = 
+  IDATA_T* result_idx_one_step0 = 
+      (IDATA_T*) MALLOC(sizeof(IDATA_T) * BATCH_SIZE);
+  IDATA_T* result_idx_one_step1 = 
       (IDATA_T*) MALLOC(sizeof(IDATA_T) * BATCH_SIZE);
   IDATA_T* result_idx_all = 
       (IDATA_T*) MALLOC(sizeof(IDATA_T) * COMPUTE_TIME * BATCH_SIZE);
-  init_int_array (result_idx_one_step, IDATA_T(1), LDATA_T(BATCH_SIZE));
-  init_int_array (result_idx_all, IDATA_T(0), LDATA_T(COMPUTE_TIME * BATCH_SIZE));
+  init_int_array(result_idx_one_step0, 0, BATCH_SIZE);
+  init_int_array(result_idx_one_step1, 0, BATCH_SIZE);
+  init_int_array(result_idx_all, 0, COMPUTE_TIME * BATCH_SIZE);
+  load_data<LDATA_T, LDATA_T>(INIT_WORD_IDX_FILE, result_idx_one_step0, 
+                              BATCH_SIZE);
 
   // load model in
   load_data<FDATA_T, LDATA_T>(EMBEDDINGS_FILE, word_embedding, 
@@ -98,18 +103,22 @@ int main(int argc, char *argv[]) {
     LDATA_T result_idx_all_idx = 2 * compute_time * BATCH_SIZE;
     wrapper_rnn_fc(
         word_embedding, rnn_kernel, rnn_recurrent_kernel, rnn_bias, 
-        fc_kernel, fc_bias, /* input_word_idx = */result_idx_one_step, 
+        fc_kernel, fc_bias, /* input_word_idx = */result_idx_one_step0, 
         rnn_input_state_cache, /* rnn_last_state = */rnn_state0, 
         /* rnn_output_state = */rnn_state1, fc_output_cache,
-        /* result_idx = */result_idx_all + result_idx_all_idx);
+        /* result_idx = */result_idx_one_step1);
+    memcpy(result_idx_all + result_idx_all_idx, result_idx_one_step1,
+           sizeof(FDATA_T) * BATCH_SIZE);
 
     result_idx_all_idx = (2 * compute_time + 1) * BATCH_SIZE;
     wrapper_rnn_fc(
         word_embedding, rnn_kernel, rnn_recurrent_kernel, rnn_bias, 
-        fc_kernel, fc_bias, /* input_word_idx = */result_idx_one_step, 
+        fc_kernel, fc_bias, /* input_word_idx = */result_idx_one_step1, 
         rnn_input_state_cache, /* rnn_last_state = */rnn_state1, 
         /* rnn_output_state = */rnn_state0, fc_output_cache,
-        /* result_idx = */result_idx_all + result_idx_all_idx);
+        /* result_idx = */result_idx_one_step0);
+    memcpy(result_idx_all + result_idx_all_idx, result_idx_one_step0,
+           sizeof(FDATA_T) * BATCH_SIZE);
   }
 
 #define VERBOSE
@@ -134,7 +143,8 @@ int main(int argc, char *argv[]) {
   MFREE(fc_output_cache);
 
   // Indexes
-  MFREE(result_idx_one_step);
+  MFREE(result_idx_one_step0);
+  MFREE(result_idx_one_step1);
   MFREE(result_idx_all);
 
   return 0;

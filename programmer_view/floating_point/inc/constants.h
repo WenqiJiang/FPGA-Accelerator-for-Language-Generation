@@ -51,4 +51,4 @@
 //    output_feature_map: SM_BATCH_SIZE * SM_CLASS_SIZE
 
 #define BATCH_SIZE 64
-#define COMPUTE_TIME 1000
+#define COMPUTE_TIME 10000

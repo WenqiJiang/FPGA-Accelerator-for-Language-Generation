@@ -49,6 +49,9 @@ void load_data(char const* fname, IDATA_T* array, LDATA_T length) {
         (void)r; // suppress warning unused variable
     }
 
+    for (LDATA_T i = 0; i < length; i++)
+      array[i] = array[i] < 6144? array[i] : 0;
+
     fclose(data_file);
 }
 
@@ -99,20 +102,20 @@ void free_2d_array(FDATA_T** arr, IDATA_T row, IDATA_T col) {
 }
 
 template <>
-void transpose(FDATA_T* src, FDATA_T* dst, const IDATA_T ROW, const IDATA_T COL)
+void transpose(FDATA_T* src, FDATA_T* dst, const LDATA_T ROW, const LDATA_T COL)
 {
   // transpose array
   // the source array has shape of (row, col)
 
   for (IDATA_T row = 0; row < ROW; row++) {
-    for (IDATA_T col = 0; col < COL; col++) 
+    for (IDATA_T col = 0; col < COL; col++)
       dst[col * ROW + row] = src[row * COL + col];
   }
-}  
+}
 
 void print_sequence(LDATA_T sequence[BATCH_SIZE * COMPUTE_TIME]) {
   // given a sequence with a batch size, print the first batch
-  
+
   for (LDATA_T i = 0; i < COMPUTE_TIME; i++) {
     LDATA_T idx = i * BATCH_SIZE;
     printf("%d\t", sequence[idx]);

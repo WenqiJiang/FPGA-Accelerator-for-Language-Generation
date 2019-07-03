@@ -9,11 +9,11 @@
 #define FIXED_I_LENGTH 7
 
 #define LDATA_T int
-#define IDATA_T ap_int<INT_W_LENGTH>
+#define IDATA_T short
 #define FDATA_T ap_fixed<FIXED_W_LENGTH, FIXED_I_LENGTH>
 
 #define TOFLOAT(a) a.to_float()
-#define TOINT(a) a.to_int()
+#define TOINT(a) a
 
 #define MALLOC malloc
 #define MFREE free

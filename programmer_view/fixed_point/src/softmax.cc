@@ -3,9 +3,6 @@
 #include "types.h"
 #include "constants.h"
 
-// #include <cmath> // import exponential function: exp (val)
-#include <cstdlib>
-
 template<>
 void softmax (FDATA_T* input_feature_map, FDATA_T* output_probability_distribution) {
     // please do INITIALIZATION before input output_feature_map

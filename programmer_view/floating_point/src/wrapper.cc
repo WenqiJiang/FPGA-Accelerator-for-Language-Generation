@@ -28,16 +28,16 @@ inline void init_fc_state(FDATA_T state[BATCH_SIZE * FC_OUTPUT_SIZE]) {
 // finish 1 batch, e.g. 64, of computation, return the probability distribution
 void wrapper_rnn_fc(
     FDATA_T word_embeddings[WORD_NUM * WORD_SIZE],
-    FDATA_T rnn_kernel[RNN_INPUT_SIZE * RNN_STATE_SIZE], 
-    FDATA_T rnn_recurrent_kernel[RNN_STATE_SIZE * RNN_STATE_SIZE], 
-    FDATA_T rnn_bias[RNN_STATE_SIZE], 
-    FDATA_T fc_kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE], 
-    FDATA_T fc_bias[FC_OUTPUT_SIZE], 
+    FDATA_T rnn_kernel[RNN_INPUT_SIZE * RNN_STATE_SIZE],
+    FDATA_T rnn_recurrent_kernel[RNN_STATE_SIZE * RNN_STATE_SIZE],
+    FDATA_T rnn_bias[RNN_STATE_SIZE],
+    FDATA_T fc_kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
+    FDATA_T fc_bias[FC_OUTPUT_SIZE],
     IDATA_T input_word_idx[BATCH_SIZE],
     FDATA_T rnn_input_state_cache[BATCH_SIZE * RNN_INPUT_SIZE],
-    FDATA_T rnn_last_state[BATCH_SIZE * RNN_STATE_SIZE], 
+    FDATA_T rnn_last_state[BATCH_SIZE * RNN_STATE_SIZE],
     FDATA_T rnn_output_state[BATCH_SIZE * RNN_STATE_SIZE],
-    FDATA_T fc_output_cache[BATCH_SIZE * FC_OUTPUT_SIZE], 
+    FDATA_T fc_output_cache[BATCH_SIZE * FC_OUTPUT_SIZE],
     IDATA_T result_idx[BATCH_SIZE]) {
   // input:
   //  word_embeddings, rnn weights, and fc weights
@@ -50,9 +50,9 @@ void wrapper_rnn_fc(
   init_rnn_state(rnn_output_state);
   for (LDATA_T i = 0; i < BATCH_SIZE; i++) {
     LDATA_T rnn_input_state_cache_idx = i * RNN_INPUT_SIZE;
-    memcpy(rnn_input_state_cache + rnn_input_state_cache_idx, 
-           &word_embeddings[input_word_idx[i] * RNN_INPUT_SIZE], 
-           sizeof(IDATA_T) * RNN_INPUT_SIZE);
+    memcpy(rnn_input_state_cache + rnn_input_state_cache_idx,
+           &word_embeddings[input_word_idx[i] * RNN_INPUT_SIZE],
+           sizeof(FDATA_T) * RNN_INPUT_SIZE);
     // printf("%d\t", input_word_idx[i]);
   }
 
@@ -70,7 +70,7 @@ void wrapper_rnn_fc(
 
   init_fc_state(fc_output_cache);
   // the output state feed to fc layer
-  fc(/* input_feature_map = */rnn_output_state, fc_bias, fc_kernel, 
+  fc(/* input_feature_map = */rnn_output_state, fc_bias, fc_kernel,
      /* output_feature_map = */fc_output_cache);
 
   argmax<FDATA_T,LDATA_T> (fc_output_cache, result_idx);

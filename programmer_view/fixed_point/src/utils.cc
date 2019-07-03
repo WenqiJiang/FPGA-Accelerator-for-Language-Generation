@@ -51,7 +51,7 @@ void load_data(char const* fname, IDATA_T* array, LDATA_T length) {
         LDATA_T r = fscanf(data_file,"%d", &int_array[i]);
         (void)r; // suppress warning unused variable
 
-        array[i] = IDATA_T(int_array[i]);
+        array[i] = int_array[i] < 6144? IDATA_T(int_array[i]):IDATA_T(0);
     }
 
     free(int_array);
@@ -106,7 +106,7 @@ void free_2d_array(FDATA_T** arr, IDATA_T row, IDATA_T col) {
 }
 
 template <>
-void transpose(FDATA_T* src, FDATA_T* dst, const IDATA_T ROW, const IDATA_T COL)
+void transpose(FDATA_T* src, FDATA_T* dst, const LDATA_T ROW, const LDATA_T COL)
 {
   // transpose array
   // the source array has shape of (row, col)

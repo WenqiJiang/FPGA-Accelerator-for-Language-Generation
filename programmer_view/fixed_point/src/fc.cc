@@ -54,11 +54,6 @@ void fc(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
         LDATA_T current_kernel_index =
             output_feature_map_index * FC_INPUT_SIZE + input_feature_map_index;
 
-        // printf("FM: %d\t", current_input_feature_map_index);
-        // printf("OFM: %d\t", output_feature_map_index);
-        // printf("K: %d\t", current_kernel_index);
-        // printf("%d FM: %f", current_input_feature_map_index,TOFLOAT(input_feature_map[current_input_feature_map_index]));
-        // printf("%d K: %f", current_kernel_index, TOFLOAT(kernel[current_kernel_index]));
         // do multiplication, add to previous value
         output_feature_map[current_output_feature_map_index] +=
             input_feature_map[current_input_feature_map_index] *

@@ -92,34 +92,17 @@ int main(int argc, char *argv[]) {
   MFREE(rnn_kernel);
   MFREE(rnn_recurrent_kernel);
   MFREE(fc_kernel);
+
 #ifdef DEBUG
-  print_data<FDATA_T, LDATA_T>(fc_kernel, FC_INPUT_SIZE * FC_OUTPUT_SIZE);
+  print_data<IDATA_T, LDATA_T>(result_idx_one_step0, BATCH_SIZE);
 #endif
 
-  for (LDATA_T compute_time = 0; compute_time < COMPUTE_TIME / 2;
-       compute_time++) {
 
-    // Use ping-pong buffer
-    LDATA_T result_idx_all_idx = 2 * compute_time * BATCH_SIZE;
-    wrapper_rnn_fc(
-        word_embedding, rnn_kernel_transpose, rnn_recurrent_kernel_transpose, rnn_bias,
-        fc_kernel_transpose, fc_bias, /* input_word_idx = */result_idx_one_step0,
-        rnn_input_state_cache, /* rnn_last_state = */rnn_state0,
-        /* rnn_output_state = */rnn_state1, fc_output_cache,
-        /* result_idx = */result_idx_one_step1);
-    memcpy(result_idx_all + result_idx_all_idx, result_idx_one_step1,
-           sizeof(FDATA_T) * BATCH_SIZE);
-
-    // result_idx_all_idx = (2 * compute_time + 1) * BATCH_SIZE;
-    // wrapper_rnn_fc(
-        // word_embedding, rnn_kernel_transpose, rnn_recurrent_kernel_transpose, rnn_bias,
-        // fc_kernel_transpose, fc_bias, [> input_word_idx = <]result_idx_one_step1,
-        // rnn_input_state_cache, [> rnn_last_state = <]rnn_state1,
-        // [> rnn_output_state = <]rnn_state0, fc_output_cache,
-        // [> result_idx = <]result_idx_one_step0);
-    // memcpy(result_idx_all + result_idx_all_idx, result_idx_one_step0,
-           // sizeof(FDATA_T) * BATCH_SIZE);
-  }
+wrapper_text_generation(
+     word_embedding, rnn_kernel_transpose, rnn_recurrent_kernel_transpose,
+     rnn_bias, fc_kernel_transpose, fc_bias, result_idx_one_step0,
+     result_idx_one_step0, result_idx_all, rnn_state0, rnn_state1,
+     rnn_input_state_cache, fc_output_cache);
 
 #define VERBOSE
 #ifdef VERBOSE

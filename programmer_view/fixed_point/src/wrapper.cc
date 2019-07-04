@@ -51,7 +51,7 @@ void wrapper_rnn_fc(
   for (LDATA_T i = 0; i < BATCH_SIZE; i++) {
     LDATA_T rnn_input_state_cache_idx = i * RNN_INPUT_SIZE;
     memcpy(rnn_input_state_cache + rnn_input_state_cache_idx,
-           &word_embeddings[int(input_word_idx[i]) * RNN_INPUT_SIZE],
+           &word_embeddings[TOINT(input_word_idx[i]) * RNN_INPUT_SIZE],
            sizeof(FDATA_T) * RNN_INPUT_SIZE);
     // printf("%d\t", input_word_idx[i]);
   }
@@ -73,5 +73,46 @@ void wrapper_rnn_fc(
   fc(/* input_feature_map = */rnn_output_state, fc_bias, fc_kernel,
      /* output_feature_map = */fc_output_cache);
 
-//   argmax<FDATA_T,IDATA_T> (fc_output_cache, result_idx);
+  argmax<FDATA_T,IDATA_T> (fc_output_cache, result_idx);
+}
+
+void wrapper_text_generation(
+    FDATA_T word_embeddings[WORD_NUM * WORD_SIZE],
+    FDATA_T rnn_kernel[RNN_INPUT_SIZE * RNN_STATE_SIZE],
+    FDATA_T rnn_recurrent_kernel[RNN_STATE_SIZE * RNN_STATE_SIZE],
+    FDATA_T rnn_bias[RNN_STATE_SIZE],
+    FDATA_T fc_kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
+    FDATA_T fc_bias[FC_OUTPUT_SIZE],
+    IDATA_T result_idx_one_step0[BATCH_SIZE],
+    IDATA_T result_idx_one_step1[BATCH_SIZE],
+    IDATA_T result_idx_all[COMPUTE_TIME * BATCH_SIZE],
+    FDATA_T rnn_state0[BATCH_SIZE * RNN_STATE_SIZE],
+    FDATA_T rnn_state1[BATCH_SIZE * RNN_STATE_SIZE],
+    FDATA_T rnn_input_state_cache[BATCH_SIZE * RNN_INPUT_SIZE],
+    FDATA_T fc_output_cache[BATCH_SIZE * FC_OUTPUT_SIZE]) {
+
+  for (LDATA_T compute_time = 0; compute_time < COMPUTE_TIME / 2;
+       compute_time++) {
+
+    // Use ping-pong buffer
+    LDATA_T result_idx_all_idx = 2 * compute_time * BATCH_SIZE;
+    wrapper_rnn_fc(
+        word_embeddings, rnn_kernel, rnn_recurrent_kernel, rnn_bias,
+        fc_kernel, fc_bias, /* input_word_idx = */result_idx_one_step0,
+        rnn_input_state_cache, /* rnn_last_state = */rnn_state0,
+        /* rnn_output_state = */rnn_state1, fc_output_cache,
+        /* result_idx = */result_idx_one_step1);
+    memcpy(result_idx_all + result_idx_all_idx, result_idx_one_step1,
+           sizeof(IDATA_T) * BATCH_SIZE);
+
+    result_idx_all_idx = (2 * compute_time + 1) * BATCH_SIZE;
+    wrapper_rnn_fc(
+        word_embeddings, rnn_kernel, rnn_recurrent_kernel, rnn_bias,
+        fc_kernel, fc_bias, /* input_word_idx = */result_idx_one_step1,
+        rnn_input_state_cache, /* rnn_last_state = */rnn_state1,
+        /* rnn_output_state = */rnn_state0, fc_output_cache,
+        /* result_idx = */result_idx_one_step0);
+    memcpy(result_idx_all + result_idx_all_idx, result_idx_one_step0,
+           sizeof(IDATA_T) * BATCH_SIZE);
+  }
 }

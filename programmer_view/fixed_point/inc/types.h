@@ -13,7 +13,7 @@
 #define FDATA_T ap_fixed<FIXED_W_LENGTH, FIXED_I_LENGTH>
 
 #define TOFLOAT(a) a.to_float()
-#define TOINT(a) a
+#define TOINT(a) int(a)
 
 #define MALLOC malloc
 #define MFREE free

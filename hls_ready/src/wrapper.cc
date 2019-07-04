@@ -10,17 +10,142 @@
 // #include "softmax.h"
 #include "types.h"
 
-void copy_F_array(FDATA_T* copy_to, FDATA_T* copy_from, LDATA_T length) {
-    for (LDATA_T i = 0; i < length; i++) {
-        copy_to[i] = copy_from[i];
-    }
+////////////////////         TOP-LEVEL FUNCTION             ////////////////////
+
+// weights
+#pragma SDS data copy(word_embedding[0: WORD_NUM * WORD_SIZE])
+#pragma SDS data copy(rnn_kernel[0: RNN_INPUT_SIZE * RNN_STATE_SIZE])
+#pragma SDS data copy( \
+    rnn_recurrent_kernel[0: RNN_STATE_SIZE * RNN_STATE_SIZE])
+#pragma SDS data copy(rnn_bias[0: RNN_STATE_SIZE])
+#pragma SDS data copy(fc_kernel[0: FC_OUTPUT_SIZE * FC_INPUT_SIZE])
+#pragma SDS data copy(fc_bias[0: FC_OUTPUT_SIZE])
+
+// input states and indexes
+#pragma SDS data copy(rnn_init_state[0: BATCH_SIZE * RNN_INPUT_SIZE])
+#pragma SDS data copy(rnn_init_idx[0: BATCH_SIZE])
+
+// result indexes
+#pragma SDS data copy(result_idx_all[0: COMPUTE_TIME * BATCH_SIZE])
+
+// data access pattern
+#pragma SDS data access_pattern( \
+  word_embedding: SEQUENTIAL, \
+  rnn_kernel: SEQUENTIAL, \
+  rnn_recurrent_kernel: SEQUENTIAL, \
+  rnn_bias: SEQUENTIAL, \
+  fc_kernel: SEQUENTIAL, \
+  fc_bias: SEQUENTIAL, \
+  rnn_init_state: SEQUENTIAL, \
+  rnn_init_idx: SEQUENTIAL, \
+  result_idx_all: SEQUENTIAL)
+
+void wrapper_text_generation(
+    FDATA_T word_embedding[WORD_NUM * WORD_SIZE],
+    FDATA_T rnn_kernel[RNN_INPUT_SIZE * RNN_STATE_SIZE],
+    FDATA_T rnn_recurrent_kernel[RNN_STATE_SIZE * RNN_STATE_SIZE],
+    FDATA_T rnn_bias[RNN_STATE_SIZE],
+    FDATA_T fc_kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
+    FDATA_T fc_bias[FC_OUTPUT_SIZE],
+    FDATA_T rnn_init_state[BATCH_SIZE * RNN_STATE_SIZE],
+    IDATA_T rnn_init_idx[BATCH_SIZE],
+    IDATA_T result_idx_all[COMPUTE_TIME * BATCH_SIZE]) {
+
+  // declare arrays
+  FDATA_T word_embedding_BRAM[WORD_NUM * WORD_SIZE];
+  FDATA_T rnn_kernel_BRAM[RNN_INPUT_SIZE * RNN_STATE_SIZE];
+  FDATA_T rnn_recurrent_kernel_BRAM[RNN_STATE_SIZE * RNN_STATE_SIZE];
+  FDATA_T rnn_bias_BRAM[RNN_STATE_SIZE];
+  FDATA_T fc_kernel_BRAM[FC_OUTPUT_SIZE * FC_INPUT_SIZE];
+  FDATA_T fc_bias_BRAM[FC_OUTPUT_SIZE];
+
+  FDATA_T fc_output_cache[BATCH_SIZE * FC_OUTPUT_SIZE];
+
+  FDATA_T rnn_input_state_BRAM[BATCH_SIZE * RNN_STATE_SIZE];
+  FDATA_T rnn_state0_BRAM[BATCH_SIZE * RNN_STATE_SIZE];
+  FDATA_T rnn_state1_BRAM[BATCH_SIZE * RNN_STATE_SIZE];
+  IDATA_T result_idx_one_step0[BATCH_SIZE];
+  IDATA_T result_idx_one_step1[BATCH_SIZE];
+
+  // copy all inputs from DRAM to BRAM
+  copy_word_embedding(word_embedding_BRAM, word_embedding);
+  copy_rnn_kernel(rnn_kernel_BRAM, rnn_kernel);
+  copy_rnn_recurrent_kernel(rnn_recurrent_kernel_BRAM, rnn_recurrent_kernel);
+  copy_rnn_bias(rnn_bias_BRAM, rnn_bias);
+  copy_fc_kernel(fc_kernel_BRAM, fc_kernel);
+  copy_fc_bias(fc_kernel_BRAM, fc_bias);
+  copy_rnn_init_state(rnn_state0_BRAM, rnn_init_state);
+  copy_rnn_init_idx(result_idx_one_step0, rnn_init_idx);
+
+  for (LDATA_T compute_time = 0; compute_time < COMPUTE_TIME / 2;
+       compute_time++) {
+
+    // Use ping-pong buffer
+    LDATA_T result_idx_all_idx = 2 * compute_time * BATCH_SIZE;
+    wrapper_rnn_fc(
+        word_embedding_BRAM, rnn_kernel_BRAM, rnn_recurrent_kernel_BRAM,
+        rnn_bias_BRAM, fc_kernel_BRAM, fc_bias_BRAM,
+        /* input_word_idx = */result_idx_one_step0, rnn_input_state_BRAM,
+        /* rnn_last_state = */rnn_state0_BRAM,
+		/* rnn_output_state = */rnn_state1_BRAM,
+        fc_output_cache, /* result_idx = */result_idx_one_step1);
+    result_to_DRAM(result_idx_one_step1, result_idx_all + result_idx_all_idx);
+
+    result_idx_all_idx = (2 * compute_time + 1) * BATCH_SIZE;
+    wrapper_rnn_fc(
+        word_embedding_BRAM, rnn_kernel_BRAM, rnn_recurrent_kernel_BRAM,
+        rnn_bias_BRAM, fc_kernel_BRAM, fc_bias_BRAM,
+        /* input_word_idx = */result_idx_one_step1, rnn_input_state_BRAM,
+        /* rnn_last_state = */rnn_state1_BRAM,
+		/* rnn_output_state = */rnn_state0_BRAM,
+        fc_output_cache, /* result_idx = */result_idx_one_step0);
+    result_to_DRAM(result_idx_one_step0, result_idx_all + result_idx_all_idx);
+  }
 }
 
-void copy_I_array(IDATA_T* copy_to, IDATA_T* copy_from, LDATA_T length) {
-    for (LDATA_T i = 0; i < length; i++) {
-        copy_to[i] = copy_from[i];
-    }
+////////////////////           Layer Wrapper                ////////////////////
+
+// finish 1 batch, e.g. 64, of computation, return the result indexes
+void wrapper_rnn_fc(
+    FDATA_T word_embedding[WORD_NUM * WORD_SIZE],
+    FDATA_T rnn_kernel[RNN_INPUT_SIZE * RNN_STATE_SIZE],
+    FDATA_T rnn_recurrent_kernel[RNN_STATE_SIZE * RNN_STATE_SIZE],
+    FDATA_T rnn_bias[RNN_STATE_SIZE],
+    FDATA_T fc_kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
+    FDATA_T fc_bias[FC_OUTPUT_SIZE],
+    IDATA_T input_word_idx[BATCH_SIZE],
+    FDATA_T rnn_input_state_cache[BATCH_SIZE * RNN_INPUT_SIZE],
+    FDATA_T rnn_last_state[BATCH_SIZE * RNN_STATE_SIZE],
+    FDATA_T rnn_output_state[BATCH_SIZE * RNN_STATE_SIZE],
+    FDATA_T fc_output_cache[BATCH_SIZE * FC_OUTPUT_SIZE],
+    IDATA_T result_idx[BATCH_SIZE]) {
+  // input:
+  //  word_embedding, rnn weights, and fc weights
+  //  last state, input word_idx
+  // output:
+  //  rnn_output_state, current generated word index
+  // cache:
+  //  fc_output_cache, avoid malloc every time we call this function
+
+  init_rnn_state(rnn_output_state);
+  for (LDATA_T i = 0; i < BATCH_SIZE; i++) {
+    LDATA_T rnn_input_state_cache_idx = i * RNN_INPUT_SIZE;
+    copy_word_vector(rnn_input_state_cache + rnn_input_state_cache_idx,
+                     &word_embedding[input_word_idx[i] * RNN_INPUT_SIZE]);
+  }
+
+  rnn(rnn_last_state, rnn_input_state_cache,
+      rnn_bias, rnn_kernel, rnn_recurrent_kernel, rnn_output_state);
+
+  init_fc_state(fc_output_cache);
+  // the output state feed to fc layer
+  fc(/* input_feature_map = */rnn_output_state, fc_bias, fc_kernel,
+     /* output_feature_map = */fc_output_cache);
+
+  argmax (fc_output_cache, result_idx);
 }
+
+////////////////////           Layer Functions              ////////////////////
 
 void rnn(FDATA_T last_state[BATCH_SIZE * RNN_STATE_SIZE],
          FDATA_T input_state[BATCH_SIZE * RNN_INPUT_SIZE],
@@ -182,6 +307,7 @@ void fc(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
     }
   }
 }
+
 void argmax(FDATA_T* input, IDATA_T* result) {
     // input: a probability distribution (BATCH_SIZE, SM_OUTPUT_SIZE)
     // result: the index of each output (BATCH_SIZE, )
@@ -200,122 +326,109 @@ void argmax(FDATA_T* input, IDATA_T* result) {
     }
 }
 
-inline void copy_array(FDATA_T* src, FDATA_T* dst, LDATA_T len) {
-  for (LDATA_T i = 0; i < len; i++)
-    dst[i] = src[i];
-}
+////////////////////           Utility Functions          ////////////////////
 
-inline void init_rnn_state(FDATA_T state[BATCH_SIZE * RNN_STATE_SIZE]) {
-  for (LDATA_T i = 0; i < BATCH_SIZE * RNN_STATE_SIZE; i++)
-    state[i] = 0;
-}
-
-inline void init_fc_state(FDATA_T state[BATCH_SIZE * FC_OUTPUT_SIZE]) {
-  for (LDATA_T i = 0; i < BATCH_SIZE * FC_OUTPUT_SIZE; i++)
-    state[i] = 0;
-}
-
-// finish 1 batch, e.g. 64, of computation, return the probability distribution
-void wrapper_rnn_fc(
-    FDATA_T word_embeddings[WORD_NUM * WORD_SIZE],
-    FDATA_T rnn_kernel[RNN_INPUT_SIZE * RNN_STATE_SIZE],
-    FDATA_T rnn_recurrent_kernel[RNN_STATE_SIZE * RNN_STATE_SIZE],
-    FDATA_T rnn_bias[RNN_STATE_SIZE],
-    FDATA_T fc_kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
-    FDATA_T fc_bias[FC_OUTPUT_SIZE],
-    IDATA_T input_word_idx[BATCH_SIZE],
-    FDATA_T rnn_input_state_cache[BATCH_SIZE * RNN_INPUT_SIZE],
-    FDATA_T rnn_last_state[BATCH_SIZE * RNN_STATE_SIZE],
-    FDATA_T rnn_output_state[BATCH_SIZE * RNN_STATE_SIZE],
-    FDATA_T fc_output_cache[BATCH_SIZE * FC_OUTPUT_SIZE],
-    IDATA_T result_idx[BATCH_SIZE]) {
-  // input:
-  //  word_embeddings, rnn weights, and fc weights
-  //  last state, input word_idx
-  // output:
-  //  rnn_output_state, current generated word index
-  // cache:
-  //  fc_output_cache, avoid malloc every time we call this function
-
-  init_rnn_state(rnn_output_state);
-  for (LDATA_T i = 0; i < BATCH_SIZE; i++) {
-    LDATA_T rnn_input_state_cache_idx = i * RNN_INPUT_SIZE;
-    copy_F_array(rnn_input_state_cache + rnn_input_state_cache_idx,
-           &word_embeddings[TOINT(input_word_idx[i]) * RNN_INPUT_SIZE],
-           RNN_INPUT_SIZE);
-
-    // memcpy(rnn_input_state_cache + rnn_input_state_cache_idx,
-           // &word_embeddings[TOINT(input_word_idx[i]) * RNN_INPUT_SIZE],
-           // sizeof(FDATA_T) * RNN_INPUT_SIZE);
+void copy_word_embedding(FDATA_T word_embedding_BRAM[WORD_NUM * WORD_SIZE],
+                         FDATA_T word_embedding_DRAM[WORD_NUM * WORD_SIZE]) {
+#pragma HLS inline region
+  for (LDATA_T i = 0; i < WORD_NUM * WORD_NUM; i++) {
+#pragma HLS pipeline
+    word_embedding_BRAM[i] = word_embedding_DRAM[i];
   }
-
-  rnn(rnn_last_state, rnn_input_state_cache,
-      rnn_bias, rnn_kernel, rnn_recurrent_kernel, rnn_output_state);
-
-  init_fc_state(fc_output_cache);
-  // the output state feed to fc layer
-  fc(/* input_feature_map = */rnn_output_state, fc_bias, fc_kernel,
-     /* output_feature_map = */fc_output_cache);
-
-  argmax (fc_output_cache, result_idx);
 }
 
-#pragma SDS data zero_copy(word_embeddings[0: WORD_NUM * WORD_SIZE])
-#pragma SDS data zero_copy(rnn_kernel[0: RNN_INPUT_SIZE * RNN_STATE_SIZE])
-#pragma SDS data zero_copy( \
-    rnn_recurrent_kernel[0: RNN_STATE_SIZE * RNN_STATE_SIZE])
-#pragma SDS data zero_copy(rnn_bias[0: RNN_STATE_SIZE])
-#pragma SDS data zero_copy(fc_kernel[0: FC_OUTPUT_SIZE * FC_INPUT_SIZE])
-#pragma SDS data zero_copy(fc_bias[0: FC_OUTPUT_SIZE])
-#pragma SDS data zero_copy(result_idx_one_step0[0: BATCH_SIZE])
-#pragma SDS data zero_copy(result_idx_one_step1[0: BATCH_SIZE])
-#pragma SDS data zero_copy(result_idx_all[0: COMPUTE_TIME * BATCH_SIZE])
-#pragma SDS data zero_copy(rnn_state0[0: BATCH_SIZE * RNN_STATE_SIZE])
-#pragma SDS data zero_copy(rnn_state1[0: BATCH_SIZE * RNN_STATE_SIZE])
-#pragma SDS data zero_copy(rnn_input_state_cache[0:BATCH_SIZE * RNN_INPUT_SIZE])
-#pragma SDS data zero_copy(fc_output_cache[0: BATCH_SIZE * FC_OUTPUT_SIZE])
+void copy_rnn_kernel(FDATA_T rnn_kernel_BRAM[RNN_INPUT_SIZE * RNN_STATE_SIZE],
+                     FDATA_T rnn_kernel_DRAM[RNN_INPUT_SIZE * RNN_STATE_SIZE]) {
+#pragma HLS inline region
+  for (LDATA_T i = 0; i < RNN_INPUT_SIZE * RNN_STATE_SIZE; i++) {
+#pragma HLS pipeline
+    rnn_kernel_BRAM[i] = rnn_kernel_DRAM[i];
+  }
+}
 
-void wrapper_text_generation(
-    FDATA_T word_embeddings[WORD_NUM * WORD_SIZE],
-    FDATA_T rnn_kernel[RNN_INPUT_SIZE * RNN_STATE_SIZE],
-    FDATA_T rnn_recurrent_kernel[RNN_STATE_SIZE * RNN_STATE_SIZE],
-    FDATA_T rnn_bias[RNN_STATE_SIZE],
-    FDATA_T fc_kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
-    FDATA_T fc_bias[FC_OUTPUT_SIZE],
-    IDATA_T result_idx_one_step0[BATCH_SIZE],
-    IDATA_T result_idx_one_step1[BATCH_SIZE],
-    IDATA_T result_idx_all[COMPUTE_TIME * BATCH_SIZE],
-    FDATA_T rnn_state0[BATCH_SIZE * RNN_STATE_SIZE],
-    FDATA_T rnn_state1[BATCH_SIZE * RNN_STATE_SIZE],
-    FDATA_T rnn_input_state_cache[BATCH_SIZE * RNN_INPUT_SIZE],
-    FDATA_T fc_output_cache[BATCH_SIZE * FC_OUTPUT_SIZE]) {
+void copy_rnn_recurrent_kernel(
+    FDATA_T rnn_recurrent_kernel_BRAM[RNN_STATE_SIZE * RNN_STATE_SIZE],
+    FDATA_T rnn_recurrent_kernel_DRAM[RNN_STATE_SIZE * RNN_STATE_SIZE]) {
+#pragma HLS inline region
+  for (LDATA_T i = 0; i < RNN_STATE_SIZE * RNN_STATE_SIZE; i++) {
+#pragma HLS pipeline
+    rnn_recurrent_kernel_BRAM[i] = rnn_recurrent_kernel_DRAM[i];
+  }
+}
 
-  for (LDATA_T compute_time = 0; compute_time < COMPUTE_TIME / 2;
-       compute_time++) {
+void copy_rnn_bias(FDATA_T rnn_bias_BRAM[RNN_STATE_SIZE],
+                   FDATA_T rnn_bias_DRAM[RNN_STATE_SIZE]) {
+#pragma HLS inline region
+  for (LDATA_T i = 0; i < RNN_STATE_SIZE; i++) {
+#pragma HLS pipeline
+    rnn_bias_BRAM[i] = rnn_bias_DRAM[i];
+  }
+}
 
-    // Use ping-pong buffer
-    LDATA_T result_idx_all_idx = 2 * compute_time * BATCH_SIZE;
-    wrapper_rnn_fc(
-        word_embeddings, rnn_kernel, rnn_recurrent_kernel, rnn_bias,
-        fc_kernel, fc_bias, /* input_word_idx = */result_idx_one_step0,
-        rnn_input_state_cache, /* rnn_last_state = */rnn_state0,
-        /* rnn_output_state = */rnn_state1, fc_output_cache,
-        /* result_idx = */result_idx_one_step1);
-    copy_I_array(result_idx_all + result_idx_all_idx, result_idx_one_step1,
-                 BATCH_SIZE);
-    // memcpy(result_idx_all + result_idx_all_idx, result_idx_one_step1,
-           // sizeof(IDATA_T) * BATCH_SIZE);
+void copy_fc_kernel(FDATA_T fc_kernel_BRAM[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
+                    FDATA_T fc_kernel_DRAM[FC_OUTPUT_SIZE * FC_INPUT_SIZE]) {
+#pragma HLS inline region
+  for (LDATA_T i = 0; i < FC_OUTPUT_SIZE * FC_INPUT_SIZE; i++) {
+#pragma HLS pipeline
+    fc_kernel_BRAM[i] = fc_kernel_DRAM[i];
+  }
+}
 
-    result_idx_all_idx = (2 * compute_time + 1) * BATCH_SIZE;
-    wrapper_rnn_fc(
-        word_embeddings, rnn_kernel, rnn_recurrent_kernel, rnn_bias,
-        fc_kernel, fc_bias, /* input_word_idx = */result_idx_one_step1,
-        rnn_input_state_cache, /* rnn_last_state = */rnn_state1,
-        /* rnn_output_state = */rnn_state0, fc_output_cache,
-        /* result_idx = */result_idx_one_step0);
-    copy_I_array(result_idx_all + result_idx_all_idx, result_idx_one_step0,
-                 BATCH_SIZE);
-    // memcpy(result_idx_all + result_idx_all_idx, result_idx_one_step0,
-           // sizeof(IDATA_T) * BATCH_SIZE);
+void copy_fc_bias(FDATA_T fc_bias_BRAM[FC_OUTPUT_SIZE],
+                  FDATA_T fc_bias_DRAM[FC_OUTPUT_SIZE]) {
+#pragma HLS inline region
+  for (LDATA_T i = 0; i < FC_OUTPUT_SIZE; i++) {
+#pragma HLS pipeline
+    fc_bias_BRAM[i] = fc_bias_DRAM[i];
+  }
+}
+
+void copy_rnn_init_state(
+    FDATA_T rnn_state_BRAM[BATCH_SIZE * RNN_STATE_SIZE],
+    FDATA_T rnn_init_state_DRAM[BATCH_SIZE * RNN_STATE_SIZE]) {
+#pragma HLS inline region
+  for (LDATA_T i = 0; i < BATCH_SIZE * RNN_INPUT_SIZE; i++) {
+#pragma HLS pipeline
+    rnn_state_BRAM[i] = rnn_init_state_DRAM[i];
+  }
+}
+
+void copy_rnn_init_idx(IDATA_T rnn_idx_BRAM[BATCH_SIZE],
+                       IDATA_T rnn_idx_DRAM[BATCH_SIZE]) {
+#pragma HLS inline region
+  for (LDATA_T i = 0; i < BATCH_SIZE; i++) {
+#pragma HLS pipeline
+    rnn_idx_DRAM[i] = rnn_idx_DRAM[i];
+  }
+}
+
+void copy_word_vector(FDATA_T rnn_input_state_BRAM[RNN_STATE_SIZE],
+                      FDATA_T word_embedding_BRAM[RNN_STATE_SIZE]) {
+#pragma HLS inline region
+  for (LDATA_T i = 0; i < RNN_STATE_SIZE; i++)
+#pragma HLS pipeline
+    rnn_input_state_BRAM[i] = word_embedding_BRAM[i];
+}
+
+void init_rnn_state(FDATA_T state[BATCH_SIZE * RNN_STATE_SIZE]) {
+#pragma HLS inline region
+  for (LDATA_T i = 0; i < BATCH_SIZE * RNN_STATE_SIZE; i++)
+#pragma HLS pipeline
+    state[i] = 0;
+}
+
+void init_fc_state(FDATA_T state[BATCH_SIZE * FC_OUTPUT_SIZE]) {
+#pragma HLS inline region
+  for (LDATA_T i = 0; i < BATCH_SIZE * FC_OUTPUT_SIZE; i++)
+#pragma HLS pipeline
+    state[i] = 0;
+}
+
+void result_to_DRAM(IDATA_T result_idx_BRAM[BATCH_SIZE],
+    IDATA_T result_idx_DRAM[BATCH_SIZE]) {
+#pragma HLS inline region
+  for (LDATA_T i = 0; i < BATCH_SIZE; i++) {
+#pragma HLS pipeline
+    result_idx_DRAM[i] = result_idx_BRAM[i];
   }
 }

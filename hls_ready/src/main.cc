@@ -33,19 +33,23 @@ int main(int argc, char *argv[]) {
   FDATA_T* rnn_recurrent_kernel_transpose =
       (FDATA_T*) MALLOC(sizeof(FDATA_T) * RNN_STATE_SIZE * RNN_STATE_SIZE);
 
-  FDATA_T* rnn_input_state_cache =
-      (FDATA_T*) MALLOC(sizeof(FDATA_T) * BATCH_SIZE * RNN_INPUT_SIZE);
+  // FDATA_T* rnn_input_state_cache =
+      // (FDATA_T*) MALLOC(sizeof(FDATA_T) * BATCH_SIZE * RNN_INPUT_SIZE);
 
   // Ping-pong buffers, serves as input and output states alternatively
-  FDATA_T* rnn_state0 =
-      (FDATA_T*) MALLOC(sizeof(FDATA_T) * BATCH_SIZE * RNN_STATE_SIZE);
-  FDATA_T* rnn_state1 =
-      (FDATA_T*) MALLOC(sizeof(FDATA_T) * BATCH_SIZE * RNN_STATE_SIZE);
-  init_float_array (rnn_state0, 0, BATCH_SIZE * RNN_STATE_SIZE);
-  init_float_array (rnn_state1, 0, BATCH_SIZE * RNN_STATE_SIZE);
-  load_data<FDATA_T, LDATA_T>(INIT_STATES_FILE, rnn_state0,
-                              BATCH_SIZE * RNN_STATE_SIZE);
+  // FDATA_T* rnn_state0 =
+      // (FDATA_T*) MALLOC(sizeof(FDATA_T) * BATCH_SIZE * RNN_STATE_SIZE);
+  // FDATA_T* rnn_state1 =
+      // (FDATA_T*) MALLOC(sizeof(FDATA_T) * BATCH_SIZE * RNN_STATE_SIZE);
+  // init_float_array (rnn_state0, 0, BATCH_SIZE * RNN_STATE_SIZE);
+  // init_float_array (rnn_state1, 0, BATCH_SIZE * RNN_STATE_SIZE);
+  // load_data<FDATA_T, LDATA_T>(INIT_STATES_FILE, rnn_state0,
+                              // BATCH_SIZE * RNN_STATE_SIZE);
 
+  FDATA_T* rnn_init_state =
+      (FDATA_T*) MALLOC(sizeof(FDATA_T) * BATCH_SIZE * RNN_STATE_SIZE);
+  load_data<FDATA_T, LDATA_T>(INIT_STATES_FILE, rnn_init_state,
+                              BATCH_SIZE * RNN_STATE_SIZE);
   // FC
   FDATA_T* fc_bias =
       (FDATA_T*) MALLOC(sizeof(FDATA_T) * FC_OUTPUT_SIZE);
@@ -54,21 +58,25 @@ int main(int argc, char *argv[]) {
   FDATA_T* fc_kernel_transpose =
       (FDATA_T*) MALLOC(sizeof(FDATA_T) * FC_INPUT_SIZE * FC_OUTPUT_SIZE);
 
-  FDATA_T* fc_output_cache =
-      (FDATA_T*) MALLOC(sizeof(FDATA_T) * BATCH_SIZE * FC_OUTPUT_SIZE);
+  // FDATA_T* fc_output_cache =
+      // (FDATA_T*) MALLOC(sizeof(FDATA_T) * BATCH_SIZE * FC_OUTPUT_SIZE);
 
-  // result indexes of one single time step and all steps
-  IDATA_T* result_idx_one_step0 =
-      (IDATA_T*) MALLOC(sizeof(IDATA_T) * BATCH_SIZE);
-  IDATA_T* result_idx_one_step1 =
-      (IDATA_T*) MALLOC(sizeof(IDATA_T) * BATCH_SIZE);
+  // // result indexes of one single time step and all steps
+  // IDATA_T* result_idx_one_step0 =
+      // (IDATA_T*) MALLOC(sizeof(IDATA_T) * BATCH_SIZE);
+  // IDATA_T* result_idx_one_step1 =
+      // (IDATA_T*) MALLOC(sizeof(IDATA_T) * BATCH_SIZE);
   IDATA_T* result_idx_all =
       (IDATA_T*) MALLOC(sizeof(IDATA_T) * COMPUTE_TIME * BATCH_SIZE);
-  init_int_array(result_idx_one_step0, 0, BATCH_SIZE);
-  init_int_array(result_idx_one_step1, 0, BATCH_SIZE);
-  init_int_array(result_idx_all, 0, COMPUTE_TIME * BATCH_SIZE);
-  load_data<IDATA_T, LDATA_T>(INIT_WORD_IDX_FILE, result_idx_one_step0,
-                              BATCH_SIZE);
+  // init_int_array(result_idx_one_step0, 0, BATCH_SIZE);
+  // init_int_array(result_idx_one_step1, 0, BATCH_SIZE);
+  // init_int_array(result_idx_all, 0, COMPUTE_TIME * BATCH_SIZE);
+  // load_data<IDATA_T, LDATA_T>(INIT_WORD_IDX_FILE, result_idx_one_step0,
+                              // BATCH_SIZE);
+
+  IDATA_T* rnn_init_idx =
+      (IDATA_T*) MALLOC(sizeof(IDATA_T) * BATCH_SIZE);
+  load_data<IDATA_T, LDATA_T>(INIT_WORD_IDX_FILE, rnn_init_idx, BATCH_SIZE);
 
   // load model in
   load_data<FDATA_T, LDATA_T>(EMBEDDINGS_FILE, word_embedding,
@@ -107,9 +115,8 @@ int main(int argc, char *argv[]) {
 
 wrapper_text_generation(
      word_embedding, rnn_kernel_transpose, rnn_recurrent_kernel_transpose,
-     rnn_bias, fc_kernel_transpose, fc_bias, result_idx_one_step0,
-     result_idx_one_step0, result_idx_all, rnn_state0, rnn_state1,
-     rnn_input_state_cache, fc_output_cache);
+     rnn_bias, fc_kernel_transpose, fc_bias, rnn_init_state, rnn_init_idx,
+     result_idx_all);
 
 #ifdef __SDSCC__
   f_ctr.stop();
@@ -128,18 +135,20 @@ wrapper_text_generation(
   MFREE(rnn_bias);
   MFREE(rnn_kernel_transpose);
   MFREE(rnn_recurrent_kernel_transpose);
-  MFREE(rnn_input_state_cache);
-  MFREE(rnn_state0);
-  MFREE(rnn_state1);
+  // MFREE(rnn_input_state_cache);
+  MFREE(rnn_init_state);
+  // MFREE(rnn_state0);
+  // MFREE(rnn_state1);
 
   // FC
   MFREE(fc_bias);
   MFREE(fc_kernel_transpose);
-  MFREE(fc_output_cache);
+  // MFREE(fc_output_cache);
 
   // Indexes
-  MFREE(result_idx_one_step0);
-  MFREE(result_idx_one_step1);
+  // MFREE(result_idx_one_step0);
+  // MFREE(result_idx_one_step1);
+  MFREE(rnn_init_idx);
   MFREE(result_idx_all);
 
   return 0;

@@ -3,6 +3,8 @@
 #include "constants.h"
 #include "types.h"
 
+#define TILE_SIZE 64
+
 ////////////////////         TOP-LEVEL FUNCTION             ////////////////////
 
 void wrapper_text_generation(

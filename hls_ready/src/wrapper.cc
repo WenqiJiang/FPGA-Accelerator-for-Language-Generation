@@ -256,56 +256,76 @@ void fc(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
   // ------- DIMENSION SETTING  ----------
 
   //  input_feature_map: BATCH_SIZE * FC_INPUT_SIZE (None * 128)
-  //  bias: FC_OUTPUT_SIZE (16192)
-  //  kernel: tranposed -> FC_OUTPUT_SIZE * FC_INPUT_SIZE  (16192 * 128)
-  //  output_feature_map: BATCH_SIZE * FC_OUTPUT_SIZE (None * 16192)
+  //  bias: FC_OUTPUT_SIZE (6144)
+  //  kernel: tranposed -> FC_OUTPUT_SIZE * FC_INPUT_SIZE  (6144 * 128)
+  //  output_feature_map: BATCH_SIZE * FC_OUTPUT_SIZE (None * 6144)
 
-  for (LDATA_T batch_index = 0; batch_index < BATCH_SIZE; batch_index++) {
-    // compute each sample in a batch
+  // cache the result of 1 TILE of the entire batch [BATCH_SIZE][TILE_SIZE]
+  FDATA_T output_feature_map_cache[BATCH_SIZE * TILE_SIZE];
+#pragma HLS array_partition variable=output_feature_map_cache block factor=64
 
-    for (LDATA_T output_feature_map_index = 0;
-         output_feature_map_index < FC_OUTPUT_SIZE;
-         output_feature_map_index++) {
+  FDATA_T maximum_output[BATCH_SIZE];
+  IDATA_T maximum_output_idx[BATCH_SIZE]; // input param
 
-      // compute output_feature_map[batch_index][output_feature_map_index]
-      // each output_feature_map has FC_OUTPUT_SIZE elements, compute each of them
-      //  * each computation is a vector vector multiplication
-      //  * vector 1: input_feature_map
-      //  * vector 2: a row of weights
-
-      // output_feature_map[batch_index][output_feature_map_index]
-      LDATA_T current_output_feature_map_index = batch_index * FC_OUTPUT_SIZE +
-          output_feature_map_index;
-
-      // initialize to 0
-      output_feature_map[current_output_feature_map_index] = 0;
-
-      for (LDATA_T input_feature_map_index = 0;
-          input_feature_map_index < FC_INPUT_SIZE;
-          input_feature_map_index++) {
-
-        // output_feature_map[batch_index][output_feature_map_index] +=
-        //      input_feature_map[batch_index][input_feature_map_index] *
-        //      kernel[output_feature_map_index][input_feature_map_index]
-
-        // input_feature_map[batch_index][input_feature_map_index]
-        LDATA_T current_input_feature_map_index =
-            batch_index * FC_INPUT_SIZE + input_feature_map_index;
-
-        // kernel[output_feature_map_index][input_feature_map_index]
-        LDATA_T current_kernel_index =
-            output_feature_map_index * FC_INPUT_SIZE + input_feature_map_index;
-
-        // do multiplication, add to previous value
-        output_feature_map[current_output_feature_map_index] +=
-            input_feature_map[current_input_feature_map_index] *
-            kernel[current_kernel_index];
-      }
-      // add bias: bias[current_output_feature_map_index]
-      output_feature_map[current_output_feature_map_index] +=
-          bias[output_feature_map_index];
-    }
+  for (LDATA_T i = 0; i < FC_OUTPUT_SIZE / TILE_SIZE; i++) {
+    fc_compute_tile(input_feature_map, kernel_tile, bias_tile,
+                    output_feature_map_cache);
+    fc_tile_argmax
   }
+}
+
+void fc_compute_tile(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
+                     FDATA_T kernel_tile[TILE_SIZE * FC_INPUT_SIZE],
+                     FDATA_T bias_tile[TILE],
+                     FDATA_T output_feature_map_cache[BATCH_SIZE * TILE]) {
+
+  // one column of input feature map / kernel, stored in registers
+  input_feature_map_reg[BATCH_SIZE];
+  kernel_tile_reg[TILE_SIZE];
+
+#pragma HLS array_partition variable=input_feature_map_reg complete
+#pragma HLS array_partition variable=kernel_tile_reg complete
+
+  fc_init_cache(output_feature_map);
+
+  for (LDATA_T input_feature_map_idx = 0;
+       input_feature_map_idx < FC_INPUT_SIZE; input_feature_map_idx++) {
+
+    fc_copy_input_FM_column(input_feature_map_reg, input_feature_map,
+                            input_feature_map_idx);
+    fc_copy_kernel_column(kernel_tile_reg, kernel_tile, input_feature_map_idx);
+    fc_mac(input_feature_map_reg, kernel_tile_reg, output_feature_map_cache);
+  }
+}
+
+// copy one column of input feature map
+void fc_copy_input_FM_column(
+    FDATA_T input_feature_map_reg[BATCH_SIZE],
+    FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
+    LDATA_T input_feature_map_idx) {
+
+  for (LDATA_T i = 0; i < BATCH_SIZE; i++) {
+#pragma HLS unroll complete
+    input_feature_map_reg[i] =
+        input_feature_map[i * FC_INPUT_SIZE + input_feature_map_idx];
+  }
+}
+
+// copy one column of kernel
+void fc_copy_kernel_column(
+    FDATA_T kernel_tile_reg[TILE],
+    FDATA_T kernel_tile[TILE_SIZE * FC_INPUT_SIZE],
+    LDATA_T kernel_idx) {
+
+  for (LDATA_T i = 0; i < TILE_SIZE; i++) {
+#pragma HLS unroll complete
+    kernel_tile_reg[i] = kernel_tile[i * FC_INPUT_SIZE + kernel_idx];
+  }
+}
+
+void fc_mac(FDATA_T input_feature_map_reg, FDATA_T kernel_tile_reg,
+    FDATA_T output_feature_map_cache) {
+
 }
 
 void argmax(FDATA_T* input, IDATA_T* result) {

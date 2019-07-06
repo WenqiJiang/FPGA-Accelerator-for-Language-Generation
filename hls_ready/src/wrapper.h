@@ -68,7 +68,7 @@ void fc_copy_kernel_column(
 
 void fc_mac(FDATA_T input_feature_map_reg[BATCH_SIZE],
             FDATA_T kernel_tile_reg[FC_TILE_SIZE],
-            FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE]) {
+            FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE]) ;
 
 // init cache to 0s
 void fc_init_cache(FDATA_T state[BATCH_SIZE * FC_TILE_SIZE]);
@@ -130,7 +130,7 @@ void copy_word_vector(FDATA_T rnn_input_state_BRAM[RNN_STATE_SIZE],
 void init_rnn_state(FDATA_T state[BATCH_SIZE * RNN_STATE_SIZE]);
 
 // set state values to 0s
-void init_fc_state(FDATA_T state[BATCH_SIZE * FC_OUTPUT_SIZE]);
+void init_fc_state(FDATA_T state[BATCH_SIZE * FC_TILE_SIZE]);
 
 // copy the result index of a single time step from BRAM to DRAM
 void result_to_DRAM(IDATA_T result_idx_BRAM[BATCH_SIZE],

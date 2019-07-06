@@ -60,11 +60,11 @@ void wrapper_text_generation(
   FDATA_T fc_bias_BRAM[FC_OUTPUT_SIZE];
 
 // this value shoule be equal to BATCH_SIZE
-#pragma HLS array_partition variable=word_embedding_BRAM block factor=64
+#pragma HLS array_partition variable=word_embedding_BRAM block factor=32
 // this value should be equal to FC_BATCH_SIZE
-#pragma HLS array_partition variable=fc_kernel_BRAM block factor=64
+#pragma HLS array_partition variable=fc_kernel_BRAM block factor=32
 // this value should be equal to FC_BATCH_SIZE
-#pragma HLS array_partition variable=fc_bias_BRAM block factor=64
+#pragma HLS array_partition variable=fc_bias_BRAM block factor=32
 
   FDATA_T rnn_input_state_BRAM[BATCH_SIZE * RNN_STATE_SIZE];
   FDATA_T rnn_state0_BRAM[BATCH_SIZE * RNN_STATE_SIZE];
@@ -142,7 +142,6 @@ void wrapper_rnn_fc(
   rnn(rnn_last_state, rnn_input_state_cache,
       rnn_bias, rnn_kernel, rnn_recurrent_kernel, rnn_output_state);
 
-  init_fc_state(fc_output_cache);
   // the output state feed to fc layer
   fc(/* input_feature_map = */rnn_output_state, fc_kernel, fc_bias,
      /* output_feature_map = */result_idx);
@@ -265,13 +264,15 @@ void fc(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
 
   // cache the result of 1 TILE of the entire batch [BATCH_SIZE][FC_TILE_SIZE]
   FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE];
-#pragma HLS array_partition variable=output_feature_map_cache block factor=64
+#pragma HLS array_partition variable=output_feature_map_cache block factor=32
 
   FDATA_T maximum_output[BATCH_SIZE];
 
+  init_fc_state(output_feature_map_cache);
   for (LDATA_T tile_iter = 0; tile_iter < FC_OUTPUT_SIZE / FC_TILE_SIZE;
        tile_iter++) {
-#pragma HLS dataflow
+    // cannot read and write output_feature_map_cache in fc_compute_tile
+// #pragma HLS dataflow
     LDATA_T kernel_start_idx = tile_iter * FC_TILE_SIZE * FC_INPUT_SIZE;
     LDATA_T bias_start_idx = tile_iter * FC_TILE_SIZE;
     fc_compute_tile(input_feature_map, kernel + kernel_start_idx,
@@ -288,23 +289,24 @@ void fc_compute_tile(
     FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE]) {
 
   // one column of input feature map / kernel, stored in registers
-  input_feature_map_reg[BATCH_SIZE];
-  kernel_tile_reg[FC_TILE_SIZE];
+  FDATA_T input_feature_map_reg[BATCH_SIZE];
+  FDATA_T kernel_tile_reg[FC_TILE_SIZE];
 
 #pragma HLS array_partition variable=input_feature_map_reg complete
 #pragma HLS array_partition variable=kernel_tile_reg complete
 
-  fc_init_cache(output_feature_map);
+  fc_init_cache(output_feature_map_cache);
 
   for (LDATA_T input_feature_map_idx = 0;
        input_feature_map_idx < FC_INPUT_SIZE; input_feature_map_idx++) {
-#pragma HLS dataflow
+    // cannot read and write output_feature_map_cache in fc_mac
+// #pragma HLS dataflow
     fc_copy_input_FM_column(input_feature_map_reg, input_feature_map,
                             input_feature_map_idx);
     fc_copy_kernel_column(kernel_tile_reg, kernel_tile, input_feature_map_idx);
     fc_mac(input_feature_map_reg, kernel_tile_reg, output_feature_map_cache);
   }
-  fc_add_bias(output_feature_map_cache, bias);
+  fc_add_bias(output_feature_map_cache, bias_tile);
 }
 
 // copy one column of input feature map
@@ -395,6 +397,8 @@ void fc_tile_argmax(FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE],
   }
 }
 
+void fc_add_bias(FDATA_T output_feature_map[BATCH_SIZE * FC_TILE_SIZE],
+                 FDATA_T bias[FC_TILE_SIZE]) {
 
   for (LDATA_T tile_idx = 0; tile_idx < FC_TILE_SIZE; tile_idx++) {
 
@@ -497,9 +501,9 @@ void init_rnn_state(FDATA_T state[BATCH_SIZE * RNN_STATE_SIZE]) {
     state[i] = 0;
 }
 
-void init_fc_state(FDATA_T state[BATCH_SIZE * FC_OUTPUT_SIZE]) {
+void init_fc_state(FDATA_T state[BATCH_SIZE * FC_TILE_SIZE]) {
 #pragma HLS inline region
-  for (LDATA_T i = 0; i < BATCH_SIZE * FC_OUTPUT_SIZE; i++)
+  for (LDATA_T i = 0; i < BATCH_SIZE * FC_TILE_SIZE; i++)
 #pragma HLS pipeline
     state[i] = 0;
 }

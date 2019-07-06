@@ -50,38 +50,34 @@ void fc(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
 
 void fc_compute_tile(
     FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
-    FDATA_T kernel_tile[FC_TILE_SIZE * FC_INPUT_SIZE],
-    FDATA_T bias_tile[FC_TILE_SIZE],
-    FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE]);
+    FDATA_T kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
+    FDATA_T bias[FC_OUTPUT_SIZE],
+    LDATA_T start_feature_map_idx,
+    FDATA_T output_feature_map_cache[FC_TILE_SIZE * BATCH_SIZE]);
 
-// copy one column of input feature map
-void fc_copy_input_FM_column(
+void fc_copy_input_FM_row(
     FDATA_T input_feature_map_reg[BATCH_SIZE],
     FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
     LDATA_T input_feature_map_idx);
 
-// copy one column of kernel
-void fc_copy_kernel_column(
+void fc_copy_kernel_row(
     FDATA_T kernel_tile_reg[FC_TILE_SIZE],
-    FDATA_T kernel_tile[FC_TILE_SIZE * FC_INPUT_SIZE],
+    FDATA_T kernel_tile[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
     LDATA_T kernel_idx);
 
 void fc_mac(FDATA_T input_feature_map_reg[BATCH_SIZE],
             FDATA_T kernel_tile_reg[FC_TILE_SIZE],
-            FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE]) ;
+            FDATA_T output_feature_map_cache[FC_TILE_SIZE * BATCH_SIZE]);
 
-// init cache to 0s
-void fc_init_cache(FDATA_T state[BATCH_SIZE * FC_TILE_SIZE]);
+void fc_init_cache(FDATA_T state[FC_TILE_SIZE * BATCH_SIZE]);
 
-// given a tile of output FM, compare with the history to find the maximum
-// value and index
-void fc_tile_argmax(FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE],
+void fc_tile_argmax(FDATA_T output_feature_map_cache[FC_TILE_SIZE * BATCH_SIZE],
                     FDATA_T global_maximum_output[BATCH_SIZE],
                     IDATA_T global_maximum_output_idx[BATCH_SIZE],
                     LDATA_T start_idx);
 
-void fc_add_bias(FDATA_T output_feature_map[BATCH_SIZE * FC_TILE_SIZE],
-                 FDATA_T bias[FC_TILE_SIZE]);
+void fc_add_bias(FDATA_T output_feature_map[FC_TILE_SIZE * BATCH_SIZE],
+                 FDATA_T bias[FC_OUTPUT_SIZE], LDATA_T bias_start_idx);
 
 ////////////////////            Utility Functions           ////////////////////
 

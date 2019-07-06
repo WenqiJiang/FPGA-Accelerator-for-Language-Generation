@@ -18,7 +18,7 @@
 #pragma SDS data copy( \
     rnn_recurrent_kernel[0: RNN_STATE_SIZE * RNN_STATE_SIZE])
 #pragma SDS data copy(rnn_bias[0: RNN_STATE_SIZE])
-#pragma SDS data copy(fc_kernel[0: FC_OUTPUT_SIZE * FC_INPUT_SIZE])
+#pragma SDS data copy(fc_kernel[0: FC_INPUT_SIZE * FC_OUTPUT_SIZE])
 #pragma SDS data copy(fc_bias[0: FC_OUTPUT_SIZE])
 
 // input states and indexes
@@ -45,7 +45,7 @@ void wrapper_text_generation(
     FDATA_T rnn_kernel[RNN_INPUT_SIZE * RNN_STATE_SIZE],
     FDATA_T rnn_recurrent_kernel[RNN_STATE_SIZE * RNN_STATE_SIZE],
     FDATA_T rnn_bias[RNN_STATE_SIZE],
-    FDATA_T fc_kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
+    FDATA_T fc_kernel[FC_INPUT_SIZE * FC_OUTPUT_SIZE],
     FDATA_T fc_bias[FC_OUTPUT_SIZE],
     FDATA_T rnn_init_state[BATCH_SIZE * RNN_STATE_SIZE],
     IDATA_T rnn_init_idx[BATCH_SIZE],
@@ -56,7 +56,7 @@ void wrapper_text_generation(
   FDATA_T rnn_kernel_BRAM[RNN_INPUT_SIZE * RNN_STATE_SIZE];
   FDATA_T rnn_recurrent_kernel_BRAM[RNN_STATE_SIZE * RNN_STATE_SIZE];
   FDATA_T rnn_bias_BRAM[RNN_STATE_SIZE];
-  FDATA_T fc_kernel_BRAM[FC_OUTPUT_SIZE * FC_INPUT_SIZE];
+  FDATA_T fc_kernel_BRAM[FC_INPUT_SIZE * FC_OUTPUT_SIZE];
   FDATA_T fc_bias_BRAM[FC_OUTPUT_SIZE];
 
 // this value shoule be equal to BATCH_SIZE
@@ -116,7 +116,7 @@ void wrapper_rnn_fc(
     FDATA_T rnn_kernel[RNN_INPUT_SIZE * RNN_STATE_SIZE],
     FDATA_T rnn_recurrent_kernel[RNN_STATE_SIZE * RNN_STATE_SIZE],
     FDATA_T rnn_bias[RNN_STATE_SIZE],
-    FDATA_T fc_kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
+    FDATA_T fc_kernel[FC_INPUT_SIZE * FC_OUTPUT_SIZE],
     FDATA_T fc_bias[FC_OUTPUT_SIZE],
     IDATA_T input_word_idx[BATCH_SIZE],
     FDATA_T rnn_input_state_cache[BATCH_SIZE * RNN_INPUT_SIZE],
@@ -250,7 +250,7 @@ void rnn(FDATA_T last_state[BATCH_SIZE * RNN_STATE_SIZE],
 }
 
 void fc(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
-        FDATA_T kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
+        FDATA_T kernel[FC_INPUT_SIZE * FC_OUTPUT_SIZE],
         FDATA_T bias[FC_OUTPUT_SIZE],
         IDATA_T maximum_output_idx[BATCH_SIZE]) {
 
@@ -259,12 +259,12 @@ void fc(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
 
   //  input_feature_map: BATCH_SIZE * FC_INPUT_SIZE (None * 128)
   //  bias: FC_OUTPUT_SIZE (6144)
-  //  kernel: tranposed -> FC_OUTPUT_SIZE * FC_INPUT_SIZE  (6144 * 128)
+  //  kernel:  FC_INPUT_SIZE * FC_OUTPUT_SIZE
   // maximum_output_idx: an array of idx (BATCH_SIZE, )
 
   // cache the result of 1 TILE of the entire batch [BATCH_SIZE][FC_TILE_SIZE]
-  FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE];
-#pragma HLS array_partition variable=output_feature_map_cache block factor=32
+  FDATA_T output_feature_map_cache[FC_TILE_SIZE * BATCH_SIZE];
+#pragma HLS array_partition variable=output_feature_map_cache cyclic factor=32
 
   FDATA_T maximum_output[BATCH_SIZE];
 
@@ -273,22 +273,22 @@ void fc(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
        tile_iter++) {
     // cannot read and write output_feature_map_cache in fc_compute_tile
 // #pragma HLS dataflow
-    LDATA_T kernel_start_idx = tile_iter * FC_TILE_SIZE * FC_INPUT_SIZE;
-    LDATA_T bias_start_idx = tile_iter * FC_TILE_SIZE;
-    fc_compute_tile(input_feature_map, kernel + kernel_start_idx,
-                    bias + bias_start_idx, output_feature_map_cache);
+    LDATA_T kernel_start_idx = tile_iter * FC_TILE_SIZE;
+    fc_compute_tile(input_feature_map, kernel, bias, kernel_start_idx,
+                    output_feature_map_cache);
     fc_tile_argmax(output_feature_map_cache, maximum_output,
-                   maximum_output_idx, tile_iter * FC_TILE_SIZE);
+                   maximum_output_idx, kernel_start_idx);
   }
 }
 
 void fc_compute_tile(
     FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
-    FDATA_T kernel_tile[FC_TILE_SIZE * FC_INPUT_SIZE],
-    FDATA_T bias_tile[FC_TILE_SIZE],
-    FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE]) {
+    FDATA_T kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
+    FDATA_T bias[FC_OUTPUT_SIZE],
+    LDATA_T start_feature_map_idx,
+    FDATA_T output_feature_map_cache[FC_TILE_SIZE * BATCH_SIZE]) {
 
-  // one column of input feature map / kernel, stored in registers
+  // one row of input feature map / kernel, stored in registers
   FDATA_T input_feature_map_reg[BATCH_SIZE];
   FDATA_T kernel_tile_reg[FC_TILE_SIZE];
 
@@ -301,16 +301,16 @@ void fc_compute_tile(
        input_feature_map_idx < FC_INPUT_SIZE; input_feature_map_idx++) {
     // cannot read and write output_feature_map_cache in fc_mac
 // #pragma HLS dataflow
-    fc_copy_input_FM_column(input_feature_map_reg, input_feature_map,
-                            input_feature_map_idx);
-    fc_copy_kernel_column(kernel_tile_reg, kernel_tile, input_feature_map_idx);
+    fc_copy_input_FM_row(input_feature_map_reg, input_feature_map,
+                         start_feature_map_idx + input_feature_map_idx);
+    fc_copy_kernel_row(kernel_tile_reg, kernel, input_feature_map_idx);
     fc_mac(input_feature_map_reg, kernel_tile_reg, output_feature_map_cache);
   }
-  fc_add_bias(output_feature_map_cache, bias_tile);
+  fc_add_bias(output_feature_map_cache, bias, start_feature_map_idx);
 }
 
-// copy one column of input feature map
-void fc_copy_input_FM_column(
+// copy one row of input feature map
+void fc_copy_input_FM_row(
     FDATA_T input_feature_map_reg[BATCH_SIZE],
     FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
     LDATA_T input_feature_map_idx) {
@@ -318,52 +318,52 @@ void fc_copy_input_FM_column(
   for (LDATA_T i = 0; i < BATCH_SIZE; i++) {
 #pragma HLS unroll complete
     input_feature_map_reg[i] =
-        input_feature_map[i * FC_INPUT_SIZE + input_feature_map_idx];
+        input_feature_map[input_feature_map_idx * FC_INPUT_SIZE + i];
   }
 }
 
-// copy one column of kernel
-void fc_copy_kernel_column(
+// copy one row of kernel
+void fc_copy_kernel_row(
     FDATA_T kernel_tile_reg[FC_TILE_SIZE],
-    FDATA_T kernel_tile[FC_TILE_SIZE * FC_INPUT_SIZE],
+    FDATA_T kernel_tile[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
     LDATA_T kernel_idx) {
 
   for (LDATA_T i = 0; i < FC_TILE_SIZE; i++) {
 #pragma HLS unroll complete
-    kernel_tile_reg[i] = kernel_tile[i * FC_INPUT_SIZE + kernel_idx];
+    kernel_tile_reg[i] = kernel_tile[kernel_idx * FC_INPUT_SIZE + i];
   }
 }
 
 void fc_mac(FDATA_T input_feature_map_reg[BATCH_SIZE],
             FDATA_T kernel_tile_reg[FC_TILE_SIZE],
-            FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE]) {
+            FDATA_T output_feature_map_cache[FC_TILE_SIZE * BATCH_SIZE]) {
 
   for (LDATA_T tile_idx = 0; tile_idx < FC_TILE_SIZE; tile_idx++) {
 // this unroll factor depends on output_feature_map_cache unroll factor
 #pragma HLS unroll factor=2
     for (LDATA_T batch_idx = 0; batch_idx < BATCH_SIZE; batch_idx++) {
 #pragma HLS unroll complete
-      output_feature_map_cache[batch_idx * FC_TILE_SIZE + tile_idx] +=
+      output_feature_map_cache[tile_idx * BATCH_SIZE + batch_idx] +=
           input_feature_map_reg[batch_idx] * kernel_tile_reg[tile_idx];
     }
   }
 }
 
 // init cache to 0s
-void fc_init_cache(FDATA_T state[BATCH_SIZE * FC_TILE_SIZE]) {
+void fc_init_cache(FDATA_T state[FC_TILE_SIZE * BATCH_SIZE]) {
   for (LDATA_T i = 0; i < FC_TILE_SIZE; i++) {
 // this unroll factor depends on output_feature_map_cache unroll factor
-#pragma HLS unroll factor=2
+// #pragma HLS unroll factor=2
     for (LDATA_T b = 0; b < BATCH_SIZE; b++) {
 #pragma HLS unroll complete
-      state[b * FC_TILE_SIZE + i] = 0;
+      state[i * FC_TILE_SIZE + b] = 0;
     }
   }
 }
 
 // given a tile of output FM, compare with the history to find the maximum
 // value and index
-void fc_tile_argmax(FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE],
+void fc_tile_argmax(FDATA_T output_feature_map_cache[FC_TILE_SIZE * BATCH_SIZE],
                     FDATA_T global_maximum_output[BATCH_SIZE],
                     IDATA_T global_maximum_output_idx[BATCH_SIZE],
                     LDATA_T start_idx) {
@@ -371,16 +371,25 @@ void fc_tile_argmax(FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE],
 
   FDATA_T local_maximum_output[BATCH_SIZE];
   IDATA_T local_maximum_output_idx[BATCH_SIZE];
+#pragma HLS array_partition local_maximum_output complete
+#pragma HLS array_partition local_maximum_output_idx complete
+
+  // init
+  for (LDATA_T i = 0; i < BATCH_SIZE; i++) {
+#pragma HLS unroll complete
+    local_maximum_output[i] = 0;
+    local_maximum_output_idx[i] = 0;
+  }
 
   // find local maximum value
   for (LDATA_T tile_idx = 0; tile_idx < FC_TILE_SIZE; tile_idx++) {
 
     for (LDATA_T batch_idx = 0; batch_idx < BATCH_SIZE; batch_idx++) {
 #pragma HLS unroll complete
-      if (output_feature_map_cache[batch_idx * FC_TILE_SIZE + tile_idx] >
+      if (output_feature_map_cache[tile_idx * BATCH_SIZE + batch_idx] >
           local_maximum_output[batch_idx]) {
         local_maximum_output[batch_idx] =
-            output_feature_map_cache[batch_idx * FC_TILE_SIZE + tile_idx];
+            output_feature_map_cache[tile_idx * BATCH_SIZE + batch_idx];
         local_maximum_output_idx[batch_idx] = start_idx + tile_idx;
       }
     }
@@ -397,15 +406,15 @@ void fc_tile_argmax(FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE],
   }
 }
 
-void fc_add_bias(FDATA_T output_feature_map[BATCH_SIZE * FC_TILE_SIZE],
-                 FDATA_T bias[FC_TILE_SIZE]) {
+void fc_add_bias(FDATA_T output_feature_map[FC_TILE_SIZE * BATCH_SIZE],
+                 FDATA_T bias[FC_OUTPUT_SIZE], LDATA_T bias_start_idx) {
 
   for (LDATA_T tile_idx = 0; tile_idx < FC_TILE_SIZE; tile_idx++) {
 
-    FDATA_T bias_reg = bias[tile_idx];
+    FDATA_T bias_reg = bias[tile_idx + bias_start_idx];
     for (LDATA_T batch_idx = 0; batch_idx < BATCH_SIZE; batch_idx++) {
 #pragma HLS unroll complete
-      output_feature_map[batch_idx * FC_TILE_SIZE + tile_idx] += bias_reg;
+      output_feature_map[tile_idx * BATCH_SIZE + batch_idx] += bias_reg;
     }
   }
 }
@@ -449,10 +458,10 @@ void copy_rnn_bias(FDATA_T rnn_bias_BRAM[RNN_STATE_SIZE],
   }
 }
 
-void copy_fc_kernel(FDATA_T fc_kernel_BRAM[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
-                    FDATA_T fc_kernel_DRAM[FC_OUTPUT_SIZE * FC_INPUT_SIZE]) {
+void copy_fc_kernel(FDATA_T fc_kernel_BRAM[FC_INPUT_SIZE * FC_OUTPUT_SIZE],
+                    FDATA_T fc_kernel_DRAM[FC_INPUT_SIZE * FC_OUTPUT_SIZE]) {
 #pragma HLS inline region
-  for (LDATA_T i = 0; i < FC_OUTPUT_SIZE * FC_INPUT_SIZE; i++) {
+  for (LDATA_T i = 0; i < FC_INPUT_SIZE * FC_OUTPUT_SIZE; i++) {
 #pragma HLS pipeline
     fc_kernel_BRAM[i] = fc_kernel_DRAM[i];
   }
@@ -501,9 +510,9 @@ void init_rnn_state(FDATA_T state[BATCH_SIZE * RNN_STATE_SIZE]) {
     state[i] = 0;
 }
 
-void init_fc_state(FDATA_T state[BATCH_SIZE * FC_TILE_SIZE]) {
+void init_fc_state(FDATA_T state[FC_TILE_SIZE * BATCH_SIZE]) {
 #pragma HLS inline region
-  for (LDATA_T i = 0; i < BATCH_SIZE * FC_TILE_SIZE; i++)
+  for (LDATA_T i = 0; i < FC_TILE_SIZE * BATCH_SIZE; i++)
 #pragma HLS pipeline
     state[i] = 0;
 }

@@ -69,15 +69,14 @@ void fc_mac(FDATA_T input_feature_map_reg[BATCH_SIZE],
             FDATA_T kernel_tile_reg[FC_TILE_SIZE],
             FDATA_T output_feature_map_cache[FC_TILE_SIZE * BATCH_SIZE]);
 
-void fc_init_cache(FDATA_T state[FC_TILE_SIZE * BATCH_SIZE]);
-
 void fc_tile_argmax(FDATA_T output_feature_map_cache[FC_TILE_SIZE * BATCH_SIZE],
                     FDATA_T global_maximum_output[BATCH_SIZE],
                     IDATA_T global_maximum_output_idx[BATCH_SIZE],
                     LDATA_T start_idx);
 
-void fc_add_bias(FDATA_T output_feature_map[FC_TILE_SIZE * BATCH_SIZE],
-                 FDATA_T bias[FC_OUTPUT_SIZE], LDATA_T bias_start_idx);
+void fc_init_cache_to_bias(
+    FDATA_T output_feature_map[FC_TILE_SIZE * BATCH_SIZE],
+    FDATA_T bias[FC_OUTPUT_SIZE], LDATA_T bias_start_idx);
 
 ////////////////////            Utility Functions           ////////////////////
 
@@ -124,9 +123,6 @@ void copy_word_vector(FDATA_T rnn_input_state_BRAM[RNN_STATE_SIZE],
 
 // set state values to 0s
 void init_rnn_state(FDATA_T state[BATCH_SIZE * RNN_STATE_SIZE]);
-
-// set state values to 0s
-void init_fc_state(FDATA_T state[BATCH_SIZE * FC_TILE_SIZE]);
 
 // copy the result index of a single time step from BRAM to DRAM
 void result_to_DRAM(IDATA_T result_idx_BRAM[BATCH_SIZE],

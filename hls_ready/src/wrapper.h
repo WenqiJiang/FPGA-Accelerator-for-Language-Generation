@@ -43,6 +43,11 @@ void rnn(FDATA_T last_state[RNN_STATE_SIZE * BATCH_SIZE],
          FDATA_T recurrent_kernel[RNN_STATE_SIZE * RNN_STATE_SIZE],
          FDATA_T output_state[RNN_STATE_SIZE * BATCH_SIZE]);
 
+void rnn_copy_batch_word_vector(
+    FDATA_T rnn_input_state_BRAM[RNN_INPUT_SIZE * BATCH_SIZE],
+    FDATA_T word_embedding_BRAM[WORD_NUM * WORD_SIZE],
+    IDATA_T input_word_idx[BATCH_SIZE]);
+
 void fc(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
         FDATA_T bias[FC_OUTPUT_SIZE],
         FDATA_T kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE],

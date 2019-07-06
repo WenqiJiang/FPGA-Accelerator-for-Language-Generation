@@ -86,9 +86,47 @@ void wrapper_text_generation(
   copy_rnn_init_state(rnn_state0_BRAM, rnn_init_state);
   copy_rnn_init_idx(result_idx_one_step0, rnn_init_idx);
 
+//  IDATA_T input_word_idx[BATCH_SIZE];
+//  input_word_idx = result_idx_one_step0;
+//  IDATA_T output_word_idx[BATCH_SIZE];
+//  output_word_idx = result_idx_one_step1;
+//  IDATA_T tmp_idx[BATCH_SIZE];
+//  FDATA_T rnn_last_state[RNN_STATE_SIZE];
+//  rnn_last_state = rnn_state0_BRAM;
+//  FDATA_T rnn_output_state[RNN_STATE_SIZE];
+//  rnn_output_state = rnn_state1_BRAM;
+//  FDATA_T tmp_state[RNN_STATE_SIZE];
+//
+//  for (LDATA_T compute_time = 0; compute_time < COMPUTE_TIME;
+//       compute_time++) {
+//#pragma HLS dataflow
+//    rnn_init_output_state(rnn_output_state);
+//    rnn_copy_batch_word_vector(rnn_input_state_BRAM, word_embedding,
+//                               input_word_idx);
+//    rnn(/* rnn_last_state = */rnn_last_state, rnn_input_state_BRAM,
+//        rnn_bias_BRAM, rnn_kernel_BRAM, rnn_recurrent_kernel_BRAM,
+//        /* rnn_output_state = */rnn_output_state);
+//
+//    // the output state feed to fc layer
+//    fc(/* input_feature_map = */rnn_output_state, fc_kernel_BRAM, fc_bias_BRAM,
+//       /* output_feature_map = */output_word_idx);
+//
+//    LDATA_T result_idx_all_idx = compute_time * BATCH_SIZE;
+//    result_to_DRAM(result_idx_one_step1, result_idx_all + result_idx_all_idx);
+//
+//    tmp_idx = input_word_idx;
+//    input_word_idx = output_word_idx;
+//    output_word_idx = tmp_idx;
+//
+//    tmp_state = rnn_last_state;
+//    rnn_last_state = rnn_output_state;
+//    rnn_output_state = tmp_state;
+//
+//  }
+
   for (LDATA_T compute_time = 0; compute_time < COMPUTE_TIME / 2;
        compute_time++) {
-#pragma HLS dataflow
+//#pragma HLS dataflow
     // Use ping-pong buffer
     LDATA_T result_idx_all_idx = 2 * compute_time * BATCH_SIZE;
 //     wrapper_rnn_fc(

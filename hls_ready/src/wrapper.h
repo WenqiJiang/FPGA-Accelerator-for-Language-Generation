@@ -3,7 +3,7 @@
 #include "constants.h"
 #include "types.h"
 
-#define TILE_SIZE 64
+#define FC_TILE_SIZE 64
 
 ////////////////////         TOP-LEVEL FUNCTION             ////////////////////
 
@@ -32,7 +32,6 @@ void wrapper_rnn_fc(
     FDATA_T rnn_input_state_cache[BATCH_SIZE * RNN_INPUT_SIZE],
     FDATA_T rnn_last_state[BATCH_SIZE * RNN_STATE_SIZE],
     FDATA_T rnn_output_state[BATCH_SIZE * RNN_STATE_SIZE],
-    FDATA_T fc_output_cache[BATCH_SIZE * FC_OUTPUT_SIZE],
     IDATA_T result_idx[BATCH_SIZE]);
 
 ////////////////////           Layer Functions              ////////////////////
@@ -47,9 +46,42 @@ void rnn(FDATA_T last_state[BATCH_SIZE * RNN_STATE_SIZE],
 void fc(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
         FDATA_T bias[FC_OUTPUT_SIZE],
         FDATA_T kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
-        FDATA_T output_feature_map[BATCH_SIZE * FC_OUTPUT_SIZE]);
+        IDATA_T maximum_output_idx[BATCH_SIZE]);
 
-void argmax(FDATA_T* input, IDATA_T* result);
+void fc_compute_tile(
+    FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
+    FDATA_T kernel_tile[FC_TILE_SIZE * FC_INPUT_SIZE],
+    FDATA_T bias_tile[FC_TILE_SIZE],
+    FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE]);
+
+// copy one column of input feature map
+void fc_copy_input_FM_column(
+    FDATA_T input_feature_map_reg[BATCH_SIZE],
+    FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
+    LDATA_T input_feature_map_idx);
+
+// copy one column of kernel
+void fc_copy_kernel_column(
+    FDATA_T kernel_tile_reg[FC_TILE_SIZE],
+    FDATA_T kernel_tile[FC_TILE_SIZE * FC_INPUT_SIZE],
+    LDATA_T kernel_idx);
+
+void fc_mac(FDATA_T input_feature_map_reg[BATCH_SIZE],
+            FDATA_T kernel_tile_reg[FC_TILE_SIZE],
+            FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE]) {
+
+// init cache to 0s
+void fc_init_cache(FDATA_T state[BATCH_SIZE * FC_TILE_SIZE]);
+
+// given a tile of output FM, compare with the history to find the maximum
+// value and index
+void fc_tile_argmax(FDATA_T output_feature_map_cache[BATCH_SIZE * FC_TILE_SIZE],
+                    FDATA_T global_maximum_output[BATCH_SIZE],
+                    IDATA_T global_maximum_output_idx[BATCH_SIZE],
+                    LDATA_T start_idx);
+
+void fc_add_bias(FDATA_T output_feature_map[BATCH_SIZE * FC_TILE_SIZE],
+                 FDATA_T bias[FC_TILE_SIZE]);
 
 ////////////////////            Utility Functions           ////////////////////
 

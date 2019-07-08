@@ -61,18 +61,18 @@ void wrapper_text_generation(
 
 
 // this value equal to WORD_SIZE / RNN_TILE_NUM
-#pragma HLS array_partition variable=word_embedding_BRAM cyclic factor=8
+// #pragma HLS array_partition variable=word_embedding_BRAM cyclic factor=8
 
 // This two partition factor depends on load kernel clock cycle requirement
-#pragma HLS array_partition variable=rnn_kernel_BRAM cyclic factor=8
-#pragma HLS array_partition variable=rnn_recurrent_kernel_BRAM cyclic factor=8
+// #pragma HLS array_partition variable=rnn_kernel_BRAM cyclic factor=8
+// #pragma HLS array_partition variable=rnn_recurrent_kernel_BRAM cyclic factor=8
 
 // This partition factor depends on load kernel clock cycle requirement
-#pragma HLS array_partition variable=fc_kernel_BRAM cyclic factor=8
+ #pragma HLS array_partition variable=fc_kernel_BRAM cyclic factor=2
 
 // This two factor depends on init speed requirement
-#pragma HLS array_partition variable=rnn_bias_BRAM cyclic factor=8
-#pragma HLS array_partition variable=fc_bias_BRAM cyclic factor=8
+// #pragma HLS array_partition variable=rnn_bias_BRAM cyclic factor=8
+// #pragma HLS array_partition variable=fc_bias_BRAM cyclic factor=8
 
   FDATA_T rnn_input_state_BRAM[BATCH_SIZE * RNN_STATE_SIZE];
   FDATA_T rnn_state0_BRAM[BATCH_SIZE * RNN_STATE_SIZE];
@@ -81,9 +81,9 @@ void wrapper_text_generation(
   IDATA_T result_idx_one_step1[BATCH_SIZE];
 
 // This three partition factor depends on prefix sum clock cycle requirement
-#pragma HLS array_partition variable=rnn_input_state_BRAM cyclic factor=64
-#pragma HLS array_partition variable=rnn_state0_BRAM cyclic factor=64
-#pragma HLS array_partition variable=rnn_state1_BRAM cyclic factor=64
+#pragma HLS array_partition variable=rnn_input_state_BRAM cyclic factor=100
+#pragma HLS array_partition variable=rnn_state0_BRAM cyclic factor=128
+#pragma HLS array_partition variable=rnn_state1_BRAM cyclic factor=128
 
   // copy all inputs from DRAM to BRAM
   copy_word_embedding(word_embedding_BRAM, word_embedding);
@@ -145,6 +145,7 @@ void wrapper_rnn_fc(
   //  fc_output_cache, avoid malloc every time we call this function
 
 	FDATA_T fc_output_feature_map[FC_OUTPUT_SIZE * BATCH_SIZE];
+#pragma HLS array_partition variable=fc_output_feature_map cyclic factor=2
 
   rnn_copy_batch_word_vector(rnn_input_state_cache, word_embedding,
                              input_word_idx);
@@ -189,12 +190,13 @@ void rnn(FDATA_T last_state[BATCH_SIZE * RNN_STATE_SIZE],
   //   recurrent_kernel: transposed -> RNN_STATE_SIZE * RNN_STATE_SIZE (128 * 128)
   //   output_state: BATCH_SIZE * RNN_STATE_SIZE (None, 128)
 	FDATA_T output_state_reg[BATCH_SIZE];
-#pragma HLS ARRAY_PARTITION variable=output_state_reg complete
+// depends on COMPUTE_UNROLL
+#pragma HLS array_partition variable=output_state_reg factor=4
 
   FDATA_T kernel_reg[RNN_INPUT_SIZE];
   FDATA_T recurrent_kernel_reg[RNN_STATE_SIZE];
-#pragma HLS ARRAY_PARTITION variable=kernel_reg cyclic factor=64
-#pragma HLS ARRAY_PARTITION variable=recurrent_kernel_reg cyclic factor=64
+#pragma HLS array_partition variable=kernel_reg cyclic factor=50
+#pragma HLS array_partition variable=recurrent_kernel_reg cyclic factor=64
 
 for (LDATA_T output_state_index = 0; output_state_index < RNN_STATE_SIZE;
          output_state_index++) {
@@ -210,11 +212,9 @@ for (LDATA_T output_state_index = 0; output_state_index < RNN_STATE_SIZE;
 
 			// save + add_bias + tanh
 			rnn_save_output_state(output_state_reg, bias[output_state_index],
-                            output_state_index,
-                            output_state + batch_iter * RNN_STATE_SIZE);
+                            output_state_index, output_state);
     }
   }
-}
 
 // load one row of kernel from BRAM to register
 void rnn_load_kernel(FDATA_T kernel_reg[RNN_INPUT_SIZE],
@@ -226,8 +226,8 @@ void rnn_load_kernel(FDATA_T kernel_reg[RNN_INPUT_SIZE],
 
   for (LDATA_T input_state_index = 0; input_state_index < RNN_INPUT_SIZE;
        input_state_index++) {
-#pragma HLS UNROLL complete
-// #pragma HLS PIPELINE
+#pragma HLS unroll factor=2
+#pragma HLS pipeline
 
     kernel_reg[input_state_index] = kernel_part[input_state_index];
   }
@@ -242,8 +242,8 @@ void rnn_load_recurrent_kernel(FDATA_T recurrent_kernel_reg[RNN_STATE_SIZE],
 
   for (LDATA_T last_state_index = 0; last_state_index < RNN_STATE_SIZE;
        last_state_index++) {
-#pragma HLS UNROLL complete
-// #pragma HLS PIPELINE
+#pragma HLS UNROLL factor=2
+#pragma HLS PIPELINE
 
     recurrent_kernel_reg[last_state_index] =
         recurrent_kernel_part[last_state_index];
@@ -268,11 +268,12 @@ void rnn_compute(
 
 #define COMPUTE_UNROLL 4
   FDATA_T local_reg[COMPUTE_UNROLL][RNN_STATE_SIZE + RNN_INPUT_SIZE];
-#pragma HLS ARRAY_PARTITION variable=local_reg cyclic factor=32 dim=2
-#pragma HLS ARRAY_PARTITION variable=local_reg cyclic factor=2 dim=1
+#pragma HLS array_partition variable=local_reg cyclic factor=32 dim=2
+#pragma HLS array_partition variable=local_reg cyclic factor=4 dim=1
 
 for (LDATA_T tile_iter = 0; tile_iter < BATCH_SIZE / COMPUTE_UNROLL;
      tile_iter++) {
+//#pragma HLS UNROLL factor=2
 
     for (LDATA_T batch_iter = 0; batch_iter < COMPUTE_UNROLL; batch_iter++) {
 /////// HACKING, factor should be consistent with COMPUTE_UNROLL //////
@@ -381,17 +382,17 @@ void rnn_save_output_state(FDATA_T output_state_reg[BATCH_SIZE],
   // output_state_reg + bias --- load to ---> output_state
 
   for (LDATA_T batch_iter = 0; batch_iter < BATCH_SIZE; batch_iter++) {
-#pragma HLS UNROLL complete
-// #pragma HLS PIPELINE
+#pragma HLS UNROLL factor=4
+#pragma HLS PIPELINE
 
     FDATA_T tmp = bias + output_state_reg[batch_iter];
     LDATA_T output_state_index = batch_iter * RNN_STATE_SIZE + col;
 
     output_state[output_state_index] =
 // if in Vivado HLS, use this:
-//        hls::tanh<FXD_W_LENGTH, FXD_I_LENGTH>(tmp);
+        hls::tanh<FIXED_W_LENGTH, FIXED_I_LENGTH>(tmp);
 // if in SDSoC, use this:
-        FDATA_T(tanh(TOFLOAT(tmp)));
+//        FDATA_T(tanh(TOFLOAT(tmp)));
 // if neither works, use this (but result wouldn't be correct)
 //        tmp;
   }
@@ -401,14 +402,18 @@ void rnn_save_output_state(FDATA_T output_state_reg[BATCH_SIZE],
 void fc(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
         FDATA_T kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
         FDATA_T bias[FC_OUTPUT_SIZE],
-				FDATA_T output_feature_map[FC_OUTPUT_SIZE * BATCH_SIZE]) {
+		FDATA_T output_feature_map[FC_OUTPUT_SIZE * BATCH_SIZE]) {
   //  input_feature_map: BATCH_SIZE * FC_INPUT_SIZE (None * 128)
   //  bias: FC_OUTPUT_SIZE (6144)
   //  kernel:  FC_OUTPUT_SIZE * FC_INPUT_SIZE
   // maximum_output_idx: an array of idx (BATCH_SIZE, )
 
 	FDATA_T output_feature_map_reg[BATCH_SIZE];
-#pragma HLS array_partition variable=output_feature_map_reg complete
+// depends on COMPUTE_UNROLL
+#pragma HLS array_partition variable=output_feature_map_reg factor=4
+
+  FDATA_T kernel_reg[FC_INPUT_SIZE];
+#pragma HLS array_partition variable=kernel_reg cyclic factor=64 dim=1
 
   for (LDATA_T output_feature_map_index = 0;
        output_feature_map_index < FC_OUTPUT_SIZE;
@@ -420,12 +425,12 @@ void fc(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
     fc_load_kernel(kernel_reg, kernel + kernel_offset);
 
     // compute
-    fc_compute(input_feature_map, kernel_reg, output_feature_map);
+    fc_compute(input_feature_map, kernel_reg, output_feature_map_reg);
 
     // save
     LDATA_T output_feature_map_offset = output_feature_map_index * BATCH_SIZE;
     fc_save_output_feature_map(
-        output_feature_map_reg, fc_bias[output_feature_map_index],
+        output_feature_map_reg, bias[output_feature_map_index],
         output_feature_map + output_feature_map_offset);
   }
 }
@@ -440,7 +445,8 @@ void fc_load_kernel(FDATA_T kernel_reg[FC_INPUT_SIZE],
   for (LDATA_T input_feature_map_index = 0;
        input_feature_map_index < FC_INPUT_SIZE;
        input_feature_map_index++) {
-#pragma HLS unroll complete
+#pragma HLS unroll factor=4
+#pragma HLS pipeline
 
     kernel_reg[input_feature_map_index] =
         kernel_BRAM_part[input_feature_map_index];
@@ -451,17 +457,19 @@ void fc_load_kernel(FDATA_T kernel_reg[FC_INPUT_SIZE],
 void fc_compute(
 		FDATA_T input_feature_map_reg[BATCH_SIZE * FC_INPUT_SIZE],
 		FDATA_T kernel_reg[FC_INPUT_SIZE],
-		FDATA_T output_feature_map[BATCH_SIZE]) {
+		FDATA_T output_feature_map_reg[BATCH_SIZE]) {
 
+#define FC_COMPUTE_UNROLL 8
   // initialization
-  FDATA_T local_reg[FC_TILE_SIZE][FC_INPUT_SIZE];
-#pragma HLS ARRAY_PARTITION variable=local_reg dim=2 cyclic factor=32
-#pragma HLS ARRAY_PARTITION variable=local_reg dim=1 cyclic factor=2
-  for (LDATA_T iter = 0; iter < BATCH_SIZE / FC_TILE_SIZE; iter++) {
+  FDATA_T local_reg[FC_COMPUTE_UNROLL][FC_INPUT_SIZE];
+#pragma HLS array_partition variable=local_reg cyclic factor=32 dim=2
+#pragma HLS array_partition variable=local_reg cyclic factor=8 dim=1
 
-    LDATA_T start_batch = iter * FC_TILE_SIZE;
+  for (LDATA_T iter = 0; iter < BATCH_SIZE / FC_COMPUTE_UNROLL; iter++) {
 
-    for (LDATA_T batch_idx = 0; batch_idx < FC_TILE_SIZE; batch_idx++) {
+    LDATA_T start_batch = iter * FC_COMPUTE_UNROLL;
+
+    for (LDATA_T batch_idx = 0; batch_idx < FC_COMPUTE_UNROLL; batch_idx++) {
 #pragma HLS UNROLL complete
       // compute
       for (LDATA_T i = 0; i < FC_INPUT_SIZE; i++) {
@@ -536,14 +544,15 @@ void fc_save_output_feature_map(
   // start_batch_index: which batch to save to BRAM
 
   for (LDATA_T i = 0; i < BATCH_SIZE; i++) {
-#pragma HLS PIPELINE
+#pragma HLS unroll factor=4
+#pragma HLS pipeline
     output_feature_map_part[i] =
         bias_reg_single + output_feature_map_reg[i];
   }
 }
 
 void argmax(FDATA_T fc_output_feature_map[FC_OUTPUT_SIZE * BATCH_SIZE],
-						 IDATA_T result_idx) {
+ 			 	 	  IDATA_T result_idx[BATCH_SIZE]) {
 
   for (LDATA_T batch_idx = 0; batch_idx < BATCH_SIZE; batch_idx++) {
 
@@ -556,6 +565,7 @@ void argmax(FDATA_T fc_output_feature_map[FC_OUTPUT_SIZE * BATCH_SIZE],
         max_idx = idx;
       }
     }
+    result_idx[batch_idx] = max_idx;
   }
 }
 
@@ -631,7 +641,7 @@ void copy_rnn_init_idx(IDATA_T rnn_idx_BRAM[BATCH_SIZE],
 #pragma HLS inline region
   for (LDATA_T i = 0; i < BATCH_SIZE; i++) {
 #pragma HLS pipeline
-    rnn_idx_DRAM[i] = rnn_idx_DRAM[i];
+    rnn_idx_BRAM[i] = rnn_idx_DRAM[i];
   }
 }
 

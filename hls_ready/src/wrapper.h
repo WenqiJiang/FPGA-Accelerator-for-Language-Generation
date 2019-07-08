@@ -92,7 +92,7 @@ void fc_save_output_feature_map(
     FDATA_T output_feature_map_part[BATCH_SIZE]);
 
 void argmax(FDATA_T fc_output_feature_map[FC_OUTPUT_SIZE * BATCH_SIZE],
-						 IDATA_T result_idx);
+						 IDATA_T result_idx[BATCH_SIZE]);
 
 ////////////////////            Utility Functions           ////////////////////
 

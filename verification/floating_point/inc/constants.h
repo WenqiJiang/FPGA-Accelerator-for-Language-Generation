@@ -7,7 +7,12 @@
 // computational efficiency if you need to change them, change them TOGETHER!
 
 // Embedding layer : 6144 * 100
+#define SMALL_DICT // 4096 words
+#ifdef SMALL_DICT
+#define WORD_NUM            4096
+#else
 #define WORD_NUM            6144
+#endif
 #define WORD_SIZE           100
 
 // == RNN layers ===============================================================
@@ -32,7 +37,7 @@
 // == Fully-Connected layers ===================================================
 #define FC_BATCH_SIZE   64
 #define FC_INPUT_SIZE   128   // same as STATE_SIZE
-#define FC_OUTPUT_SIZE  6144 // say, vocabulary number
+#define FC_OUTPUT_SIZE  WORD_NUM // say, vocabulary number
 
 // FC layer dimension:
 //      input_feature_map: FC_BATCH_SIZE * FC_INPUT_SIZE (None * 128)
@@ -47,7 +52,7 @@
 
 // == Softmax layers ===========================================================
 #define SM_BATCH_SIZE   64
-#define SM_CLASS_SIZE   6144 // how many classes
+#define SM_CLASS_SIZE   WORD_NUM // how many classes
 
 // Softmax layer dimension:
 //    input_feature_map: SM_BATCH_SIZE * SM_CLASS_SIZE

@@ -34,12 +34,12 @@ void init_state(FDATA_T state[BATCH_SIZE * RNN_STATE_SIZE]) {
 }
 // finish 1 batch, e.g. 64, of computation, return the probability distribution
 void wrapper_rnn_fc(
-    FDATA_T rnn_kernel[RNN_STATE_SIZE * RNN_INPUT_SIZE], 
-    FDATA_T rnn_recurrent_kernel[RNN_STATE_SIZE * RNN_STATE_SIZE], 
-    FDATA_T rnn_bias[RNN_STATE_SIZE], 
-    FDATA_T fc_kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE], 
-    FDATA_T fc_bias[FC_OUTPUT_SIZE], 
-    FDATA_T input_state[COMPUTE_TIME * SAMPLE_LEN * BATCH_SIZE*RNN_INPUT_SIZE], 
+    FDATA_T rnn_kernel[RNN_STATE_SIZE * RNN_INPUT_SIZE],
+    FDATA_T rnn_recurrent_kernel[RNN_STATE_SIZE * RNN_STATE_SIZE],
+    FDATA_T rnn_bias[RNN_STATE_SIZE],
+    FDATA_T fc_kernel[FC_OUTPUT_SIZE * FC_INPUT_SIZE],
+    FDATA_T fc_bias[FC_OUTPUT_SIZE],
+    FDATA_T input_state[COMPUTE_TIME * SAMPLE_LEN * BATCH_SIZE*RNN_INPUT_SIZE],
     FDATA_T output[COMPUTE_TIME * BATCH_SIZE * FC_OUTPUT_SIZE]) {
 
   // init last state inside the function, since the "first" last state is 0
@@ -73,15 +73,15 @@ void wrapper_rnn_fc(
     for (LDATA_T i = 0; i < 25; i++) {
 
       // input state start address
-      LDATA_T addr_offset1 = 
+      LDATA_T addr_offset1 =
           compute_time * SAMPLE_LEN * BATCH_SIZE * RNN_INPUT_SIZE +
           2 * i * BATCH_SIZE * RNN_INPUT_SIZE;
-      LDATA_T addr_offset2 = 
+      LDATA_T addr_offset2 =
           compute_time * SAMPLE_LEN * BATCH_SIZE * RNN_INPUT_SIZE +
           (2 * i + 1) * BATCH_SIZE * RNN_INPUT_SIZE;
-      rnn(/* last state = */state0, 
+      rnn(/* last state = */state0,
           /* input_state = */input_state + addr_offset1,
-          rnn_bias_BRAM, rnn_kernel_BRAM, rnn_recurrent_kernel_BRAM, 
+          rnn_bias_BRAM, rnn_kernel_BRAM, rnn_recurrent_kernel_BRAM,
           /* output_state = */state1);
 #ifdef DEBUG
 	if (i == 24) {
@@ -92,15 +92,16 @@ void wrapper_rnn_fc(
 		printf("\n");
 	}
 #endif
-      rnn(/* last state = */state1, 
-          /* input_state = */input_state + addr_offset2, 
-          rnn_bias_BRAM, rnn_kernel_BRAM, rnn_recurrent_kernel_BRAM, 
+      rnn(/* last state = */state1,
+          /* input_state = */input_state + addr_offset2,
+          rnn_bias_BRAM, rnn_kernel_BRAM, rnn_recurrent_kernel_BRAM,
           /* output_state = */state0);
+#define PRINT_STATE
 #ifdef PRINT_STATE
   if (i == 24) {
     //printf("step 1 output:\n RNN_STATE_SIZE: %d", RNN_STATE_SIZE);
     for (LDATA_T j = 0; j < BATCH_SIZE * RNN_STATE_SIZE; j++) {
-      printf("%f\n", (state0[j]));    
+      printf("%f\n", (state0[j]));
     }
   }
 #endif
@@ -108,11 +109,11 @@ void wrapper_rnn_fc(
 
     LDATA_T addr_offset_fc = compute_time * BATCH_SIZE * FC_OUTPUT_SIZE;
     // the last output state is state0, feed LDATA_To fc layer
-    fc(/* input_feature_map = */state0, fc_bias, fc_kernel, 
+    fc(/* input_feature_map = */state0, fc_bias, fc_kernel,
        /* output_feature_map = */output + addr_offset_fc);
   }
 }
 
 // advanced architecture 3
-// for fc layer, only compute a tile at a time, 
+// for fc layer, only compute a tile at a time,
 // use load, compute, store structure and cover the DRAM access time

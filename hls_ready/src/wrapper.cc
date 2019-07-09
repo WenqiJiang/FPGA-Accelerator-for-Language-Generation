@@ -85,6 +85,10 @@ void wrapper_text_generation(
 #pragma HLS array_partition variable=rnn_state0_BRAM cyclic factor=128
 #pragma HLS array_partition variable=rnn_state1_BRAM cyclic factor=128
 
+// This are partitioned for argmax
+#pragma HLS array_partition variable=result_idx_one_step0 complete
+#pragma HLS array_partition variable=result_idx_one_step1 complete
+
   // copy all inputs from DRAM to BRAM
   copy_word_embedding(word_embedding_BRAM, word_embedding);
   copy_rnn_kernel(rnn_kernel_BRAM, rnn_kernel);
@@ -145,7 +149,7 @@ void wrapper_rnn_fc(
   //  fc_output_cache, avoid malloc every time we call this function
 
 	FDATA_T fc_output_feature_map[FC_OUTPUT_SIZE * BATCH_SIZE];
-#pragma HLS array_partition variable=fc_output_feature_map cyclic factor=2
+#pragma HLS array_partition variable=fc_output_feature_map cyclic factor=32
 
   rnn_copy_batch_word_vector(rnn_input_state_cache, word_embedding,
                              input_word_idx);
@@ -155,7 +159,7 @@ void wrapper_rnn_fc(
   // the output state feed to fc layer
   fc(/* input_feature_map = */rnn_output_state, fc_kernel, fc_bias,
      /* output_feature_map = */fc_output_feature_map);
-	argmax(fc_output_feature_map, result_idx);
+  argmax(fc_output_feature_map, result_idx);
 }
 
 ////////////////////           Layer Functions              ////////////////////
@@ -390,9 +394,9 @@ void rnn_save_output_state(FDATA_T output_state_reg[BATCH_SIZE],
 
     output_state[output_state_index] =
 // if in Vivado HLS, use this:
-        hls::tanh<FIXED_W_LENGTH, FIXED_I_LENGTH>(tmp);
+//        hls::tanh<FIXED_W_LENGTH, FIXED_I_LENGTH>(tmp);
 // if in SDSoC, use this:
-//        FDATA_T(tanh(TOFLOAT(tmp)));
+        FDATA_T(tanh(TOFLOAT(tmp)));
 // if neither works, use this (but result wouldn't be correct)
 //        tmp;
   }
@@ -544,28 +548,38 @@ void fc_save_output_feature_map(
   // start_batch_index: which batch to save to BRAM
 
   for (LDATA_T i = 0; i < BATCH_SIZE; i++) {
-#pragma HLS unroll factor=4
-#pragma HLS pipeline
+#pragma HLS unroll factor=64
+//#pragma HLS pipeline
     output_feature_map_part[i] =
         bias_reg_single + output_feature_map_reg[i];
   }
 }
 
 void argmax(FDATA_T fc_output_feature_map[FC_OUTPUT_SIZE * BATCH_SIZE],
- 			 	 	  IDATA_T result_idx[BATCH_SIZE]) {
+ 			IDATA_T result_idx[BATCH_SIZE]) {
 
+  FDATA_T max_val[BATCH_SIZE];
+#pragma HLS array_partition variable=max_val complete
+
+  // init
   for (LDATA_T batch_idx = 0; batch_idx < BATCH_SIZE; batch_idx++) {
+#pragma HLS unroll complete
+  max_val[batch_idx] = fc_output_feature_map[batch_idx];
+  result_idx[batch_idx] = 0;
+  }
 
-    FDATA_T max_val = fc_output_feature_map[0];
-    IDATA_T max_idx = 0;
+  // argmax
+  for (IDATA_T idx = 0; idx < FC_OUTPUT_SIZE; idx++) {
 
-    for (IDATA_T idx = 0; idx < FC_OUTPUT_SIZE; idx++) {
-      if (fc_output_feature_map[batch_idx * BATCH_SIZE + idx] > max_val) {
-        max_val = fc_output_feature_map[batch_idx * BATCH_SIZE + idx];
-        max_idx = idx;
+    for (LDATA_T batch_idx = 0; batch_idx < BATCH_SIZE; batch_idx++) {
+#pragma HLS unroll complete
+
+      if (fc_output_feature_map[idx * BATCH_SIZE + batch_idx] >
+          max_val[batch_idx]) {
+        max_val[batch_idx] = fc_output_feature_map[idx*BATCH_SIZE + batch_idx];
+        result_idx[batch_idx] = idx;
       }
     }
-    result_idx[batch_idx] = max_idx;
   }
 }
 

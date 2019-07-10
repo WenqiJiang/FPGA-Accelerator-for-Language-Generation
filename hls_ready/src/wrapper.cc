@@ -81,7 +81,7 @@ void wrapper_text_generation(
   IDATA_T result_idx_one_step1[BATCH_SIZE];
 
 // This three partition factor depends on prefix sum clock cycle requirement
-#pragma HLS array_partition variable=rnn_input_state_BRAM cyclic factor=100
+#pragma HLS array_partition variable=rnn_input_state_BRAM cyclic factor=50
 #pragma HLS array_partition variable=rnn_state0_BRAM cyclic factor=128
 #pragma HLS array_partition variable=rnn_state1_BRAM cyclic factor=128
 
@@ -386,7 +386,7 @@ void rnn_save_output_state(FDATA_T output_state_reg[BATCH_SIZE],
   // output_state_reg + bias --- load to ---> output_state
 
   for (LDATA_T batch_iter = 0; batch_iter < BATCH_SIZE; batch_iter++) {
-#pragma HLS UNROLL factor=4
+// #pragma HLS UNROLL factor=4
 #pragma HLS PIPELINE
 
     FDATA_T tmp = bias + output_state_reg[batch_iter];

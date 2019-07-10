@@ -27,3 +27,5 @@ char const* INIT_STATES_FILE       = "../../datasets/init_state_6144.txt";
 #endif
 
 char const* INIT_WORD_IDX_FILE     = "../../datasets/actual_result.txt";
+char const* CORRECT_RESULT_FILE    =
+    "../correct_results/generation_4096_1000_fixed.txt";

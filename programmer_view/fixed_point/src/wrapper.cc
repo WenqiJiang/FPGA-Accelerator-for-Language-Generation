@@ -105,6 +105,24 @@ void wrapper_text_generation(
     memcpy(result_idx_all + result_idx_all_idx, result_idx_one_step1,
            sizeof(IDATA_T) * BATCH_SIZE);
 
+#define DEBUG
+#ifdef DEBUG
+  if (compute_time == 0) {
+    printf("\nrnn input state (of the first sample in the batch):\n");
+    for (LDATA_T i = 0; i < RNN_STATE_SIZE; i++) {
+      printf("%f\t", TOFLOAT(rnn_state0[i]));
+    }
+    printf("\nrnn output state (of the first sample in the batch):\n");
+    for (LDATA_T i = 0; i < RNN_STATE_SIZE; i++) {
+      printf("%f\t", TOFLOAT(rnn_state1[i]));
+    }
+    printf("\nfc output state (of the first sample in the batch):\n");
+    for (LDATA_T i = 0; i < RNN_STATE_SIZE; i++) {
+      printf("%f\t", TOFLOAT(fc_output_cache[i]));
+    }
+
+  }
+#endif
     result_idx_all_idx = (2 * compute_time + 1) * BATCH_SIZE;
     wrapper_rnn_fc(
         word_embeddings, rnn_kernel, rnn_recurrent_kernel, rnn_bias,

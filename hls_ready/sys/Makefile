@@ -1,6 +1,3 @@
-ee: SDSCC/SDS++ Compiler Commands
-# https://www.xilinx.com/html_docs/xilinx2018_3/sdaccel_doc/axl1504034384447.html
-
 #V=1
 
 # Define V=1 for a more verbose compilation

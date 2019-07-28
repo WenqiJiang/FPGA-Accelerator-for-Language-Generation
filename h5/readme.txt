@@ -1,4 +1,4 @@
-The model structure is shown in train-embeddings-rnn-50-6144.png
+The model structure is shown in train-embeddings-rnn-50.png
 
 This model is trained with pre-trained GloVe word vectors. For those words don't in the dataset, we randomly initialized them and train them. The whole embedding layer in this model is trainable.
 
@@ -9,34 +9,34 @@ To split the H5 file into individual components (split it into weights matrix an
 (0) If you want to do all the following stuff in one shot, simply run "./generate_all.sh". This bash file will do everything for you and you can close this readme right now. If you are curious about the data preprocessing detail, read the following.
 
 (1) Analyze the components in the H5 file
-	h5dump -n train-embeddings-rnn-50-6144.h5
+	h5dump -n train-embeddings-rnn-50.h5
 
     These are the weights and biases we need:
 
-	 dataset    /model_weights/embedding_3/embedding_3/embeddings:0 
+	 dataset    /model_weights/embedding_1/embedding_1/embeddings:0
 
-	 dataset    /model_weights/simple_rnn_3/simple_rnn_3/bias:0
-	 dataset    /model_weights/simple_rnn_3/simple_rnn_3/kernel:0
-	 dataset    /model_weights/simple_rnn_3/simple_rnn_3/recurrent_kernel:0
+	 dataset    /model_weights/simple_rnn_1/simple_rnn_1/bias:0
+	 dataset    /model_weights/simple_rnn_1/simple_rnn_1/kernel:0
+	 dataset    /model_weights/simple_rnn_1/simple_rnn_1/recurrent_kernel:0
 
-	 dataset    /model_weights/dense_3/dense_3/bias:0
-	 dataset    /model_weights/dense_3/dense_3/kernel:0
+	 dataset    /model_weights/dense_1/dense_1/bias:0
+	 dataset    /model_weights/dense_1/dense_1/kernel:0
 
 (2) View these weights
 	We can view any of these weights:
-	h5dump -d "/model_weights/embedding_3/embedding_3/embeddings:0" train-embeddings-rnn-50-6144.h5
+	h5dump -d "/model_weights/embedding_1/embedding_1/embeddings:0" train-embeddings-rnn-50.h5
 
 (3) Split them into individual files
 	"splitH5.py" is our code to split H5 files, we write a bash file "split.sh" to run the python file multiple times. Simply run "./split_h5.sh". We can neglect warnings.
 	
-	We can see these weights by typing, for example, "h5dump -d "/embedding_3/embeddings:0"  embedding_3_embeddings.h5". These commands are in the comments of "split_h5.sh".
+	We can see these weights by typing, for example, "h5dump -d "/embedding_1/embeddings:0"  embedding_1_embeddings.h5". These commands are in the comments of "split_h5.sh".
 
 (4) Convert H5 to txt
 	run "./h5_to_txt.sh", 
 
 	There are two ways to convert h5 datasets to txt files. The first one is to use h5dump. Below is an example command. The complete commands are in "h5_to_txt_outdated.sh".
 
-	h5dump -o dense_3_bias.txt -y -w 1000000000 dense_3_bias.h5
+	h5dump -o dense_1_bias.txt -y -w 1000000000 dense_1_bias.h5
 
 	-o F, --output=F     Output raw data into file F
 	-y,   --noindex      Do not print array indices with the data
@@ -44,9 +44,9 @@ To split the H5 file into individual components (split it into weights matrix an
 
 	However, this method will not output a very precise result, it will only keep part of the decimal fraction. Thus, we'd better use python to output accurate weights, e.g. run
 	
-	python weights_to_txt.py --iname="./embedding_3_embeddings.h5" \
-				--dataset="/embedding_3/embeddings:0" \
-				--length=1619200 > embedding_3_embeddings.txt
+	python weights_to_txt.py --iname="./embedding_1_embeddings.h5" \
+				--dataset="/embedding_1/embeddings:0" \
+				--length=1619200 > embedding_1_embeddings.txt
 
 	The complete commands are in "h5_to_txt.sh".
 	

@@ -1,13 +1,13 @@
 #include <stdio.h>
 
-#define LEN 614400
+#define LEN 1619200
 
 int main(void)
 {
   FILE *myfile;
   float weights[LEN];
 
-  myfile=fopen("./embedding_3_embeddings.txt", "r");
+  myfile=fopen("./embedding_1_embeddings.txt", "r");
 
   for(int i = 0; i < LEN; i++)
   {

@@ -7,7 +7,7 @@
 // computational efficiency if you need to change them, change them TOGETHER!
 
 // Embedding layer : 6144 * 100
-#define WORD_NUM            16192
+#define WORD_NUM            8192
 #define WORD_SIZE           100
 
 // == RNN layers ===============================================================

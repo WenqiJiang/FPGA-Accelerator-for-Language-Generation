@@ -10,6 +10,6 @@ char const* SIMPLE_RNN_RECURRENT_KERNEL_FILE =
 char const* DENSE_BIAS_FILE        = "../../../model/dense_1_bias.txt";
 char const* DENSE_KERNEL_FILE      = "../../../model/dense_1_kernel.txt";
 
-char const* INIT_STATES_FILE       = "../../../datasets/init_state_16192.txt";
+char const* INIT_STATES_FILE       = "../../../datasets/init_state_8192.txt";
 
 char const* INIT_WORD_IDX_FILE     = "../../../datasets/actual_result.txt";

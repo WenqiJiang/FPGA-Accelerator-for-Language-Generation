@@ -6,7 +6,7 @@
 // The arguments below are NOT independent: they are defined dependently for
 // computational efficiency if you need to change them, change them TOGETHER!
 
-#define WORD_NUM            8192
+#define WORD_NUM            6144
 #define WORD_SIZE           100
 
 // == RNN layers ===============================================================

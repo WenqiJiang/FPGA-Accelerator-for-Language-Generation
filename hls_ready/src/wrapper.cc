@@ -6,12 +6,12 @@
 ////////////////////         TOP-LEVEL FUNCTION             ////////////////////
 
 // weights
-#pragma SDS data copy(word_embedding[0: WORD_NUM * WORD_SIZE])
+#pragma SDS data zero_copy(word_embedding[0: WORD_NUM * WORD_SIZE])
 #pragma SDS data copy(rnn_kernel[0: RNN_STATE_SIZE * RNN_INPUT_SIZE])
 #pragma SDS data copy( \
     rnn_recurrent_kernel[0: RNN_STATE_SIZE * RNN_STATE_SIZE])
 #pragma SDS data copy(rnn_bias[0: RNN_STATE_SIZE])
-#pragma SDS data copy(fc_kernel[0: FC_OUTPUT_SIZE * FC_INPUT_SIZE])
+#pragma SDS data zero_copy(fc_kernel[0: FC_OUTPUT_SIZE * FC_INPUT_SIZE])
 #pragma SDS data copy(fc_bias[0: FC_OUTPUT_SIZE])
 
 // input states and indexes
@@ -23,11 +23,9 @@
 
 // data access pattern
 #pragma SDS data access_pattern( \
-  word_embedding: SEQUENTIAL, \
   rnn_kernel: SEQUENTIAL, \
   rnn_recurrent_kernel: SEQUENTIAL, \
   rnn_bias: SEQUENTIAL, \
-  fc_kernel: SEQUENTIAL, \
   fc_bias: SEQUENTIAL, \
   rnn_init_state: SEQUENTIAL, \
   rnn_init_idx: SEQUENTIAL, \

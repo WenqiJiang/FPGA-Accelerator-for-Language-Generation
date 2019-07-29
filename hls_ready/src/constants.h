@@ -6,13 +6,7 @@
 // The arguments below are NOT independent: they are defined dependently for
 // computational efficiency if you need to change them, change them TOGETHER!
 
-// Embedding layer : 6144 * 100
-#define SMALL_DICT // 4096 words
-#ifdef SMALL_DICT
-#define WORD_NUM            4096
-#else
-#define WORD_NUM            6144
-#endif
+#define WORD_NUM            16192
 #define WORD_SIZE           100
 
 // == RNN layers ===============================================================

@@ -47,7 +47,7 @@ void wrapper_text_generation(
   FDATA_T rnn_kernel_BRAM[RNN_STATE_SIZE * RNN_INPUT_SIZE];
   FDATA_T rnn_recurrent_kernel_BRAM[RNN_STATE_SIZE * RNN_STATE_SIZE];
   FDATA_T rnn_bias_BRAM[RNN_STATE_SIZE];
-  // FDATA_T fc_kernel_BRAM[FC_OUTPUT_SIZE * FC_INPUT_SIZE];
+  FDATA_T fc_kernel_BRAM[FC_OUTPUT_SIZE * FC_INPUT_SIZE];
   FDATA_T fc_bias_BRAM[FC_OUTPUT_SIZE];
 
 
@@ -85,7 +85,7 @@ void wrapper_text_generation(
   copy_rnn_kernel(rnn_kernel_BRAM, rnn_kernel);
   copy_rnn_recurrent_kernel(rnn_recurrent_kernel_BRAM, rnn_recurrent_kernel);
   copy_rnn_bias(rnn_bias_BRAM, rnn_bias);
-  // copy_fc_kernel(fc_kernel_BRAM, fc_kernel);
+  copy_fc_kernel(fc_kernel_BRAM, fc_kernel);
   copy_fc_bias(fc_bias_BRAM, fc_bias);
   copy_rnn_init_state(rnn_state0_BRAM, rnn_init_state);
   copy_rnn_init_idx(result_idx_one_step0, rnn_init_idx);
@@ -96,7 +96,7 @@ void wrapper_text_generation(
 
     wrapper_rnn_fc(
         word_embedding, rnn_kernel_BRAM, rnn_recurrent_kernel_BRAM,
-        rnn_bias_BRAM, fc_kernel, fc_bias_BRAM,
+        rnn_bias_BRAM, fc_kernel_BRAM, fc_bias_BRAM,
         /* input_word_idx = */result_idx_one_step0, rnn_input_state_BRAM,
         /* rnn_last_state = */rnn_state0_BRAM,
         /* rnn_output_state = */rnn_state1_BRAM,
@@ -106,7 +106,7 @@ void wrapper_text_generation(
 
     wrapper_rnn_fc(
         word_embedding, rnn_kernel_BRAM, rnn_recurrent_kernel_BRAM,
-        rnn_bias_BRAM, fc_kernel, fc_bias_BRAM,
+        rnn_bias_BRAM, fc_kernel_BRAM, fc_bias_BRAM,
         /* input_word_idx = */result_idx_one_step1, rnn_input_state_BRAM,
         /* rnn_last_state = */rnn_state1_BRAM,
         /* rnn_output_state = */rnn_state0_BRAM,

@@ -1,6 +1,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <time.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include "config.h"
 #include "constants.h"
@@ -11,9 +14,6 @@
 
 int main(int argc, char *argv[]) {
 
-#ifdef __SDSCC__
-  perf_counter f_ctr;
-#endif
 
   printf("Starting memory allocation and loading data\n");
   // Declare weights
@@ -110,6 +110,15 @@ int main(int argc, char *argv[]) {
   printf("Start Inference\n");
 
 #ifdef __SDSCC__
+  perf_counter f_ctr;
+#endif
+
+#ifdef PROFILING
+  struct timespec start, finish;
+  clock_gettime(CLOCK_REALTIME, &start);
+#endif
+
+#ifdef __SDSCC__
   f_ctr.start();
 #endif
 
@@ -120,6 +129,25 @@ wrapper_text_generation(
 
 #ifdef __SDSCC__
   f_ctr.stop();
+#endif
+
+#ifdef PROFILING
+  clock_gettime(CLOCK_REALTIME, &finish);
+
+  long seconds = finish.tv_sec - start.tv_sec;
+  long ns = finish.tv_nsec - start.tv_nsec;
+
+  if (start.tv_nsec > finish.tv_nsec) { // clock underflow
+    --seconds;
+    ns += 1000000000;
+  }
+
+  printf("seconds: %ld\n", seconds);
+  printf("nanoseconds: %ld\n", ns);
+  printf("total seconds: %e\n", (double)seconds + (double)ns/(double)1000000000);
+#endif
+
+#ifdef __SDSCC__
   printf("INFO:   cpu cycles %lu\n\r", f_ctr.avg_cpu_cycles());
   f_ctr.reset();
 #endif

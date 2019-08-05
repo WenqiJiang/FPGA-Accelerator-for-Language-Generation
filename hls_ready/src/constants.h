@@ -7,6 +7,8 @@
 // computational efficiency if you need to change them, change them TOGETHER!
 
 #define WORD_NUM            16192
+#define WORD_NUM_BRAM       6144  // store part of the weights in BRAM
+#define WORD_NUM_DRAM       WORD_NUM - WORD_NUM_BRAM
 #define WORD_SIZE           100
 
 // == RNN layers ===============================================================
@@ -30,6 +32,8 @@
 // == Fully-Connected layers ===================================================
 #define FC_INPUT_SIZE   RNN_STATE_SIZE   // same as STATE_SIZE
 #define FC_OUTPUT_SIZE  WORD_NUM // say, vocabulary number
+#define FC_OUTPUT_SIZE_BRAM WORD_NUM_BRAM  // store part of the weights in BRAM
+#define FC_OUTPUT_SIZE_DRAM WORD_NUM_DRAM
 
 // FC layer dimension:
 //      input_feature_map: BATCH_SIZE * FC_INPUT_SIZE (None * 128)

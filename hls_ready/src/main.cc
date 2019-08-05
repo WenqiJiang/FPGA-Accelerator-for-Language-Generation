@@ -14,7 +14,6 @@
 
 int main(int argc, char *argv[]) {
 
-
   printf("Starting memory allocation and loading data\n");
   // Declare weights
   // Embedding

@@ -112,6 +112,7 @@ int main(int argc, char *argv[]) {
   perf_counter f_ctr;
 #endif
 
+#define PROFILING
 #ifdef PROFILING
   struct timespec start, finish;
   clock_gettime(CLOCK_REALTIME, &start);

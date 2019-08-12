@@ -1,0 +1,9 @@
+ize: 4096
+total operations: 70844352 ops, which is 0.070844352 Gops
+5000 steps: 354221760000 ops
+model size: 6144
+total operations: 104398784 ops, which is 0.104398784 Gops
+5000 steps: 521993920000 ops
+model size: 16192
+total operations: 269025216 ops, which is 0.269025216 Gops
+5000 steps: 1345126080000 ops

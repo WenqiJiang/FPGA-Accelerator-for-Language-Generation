@@ -61,13 +61,13 @@ After hours of compilation (4 or 5 hours for me), you will get some compiled fil
 
 ./organize_sdcard.sh
 
-After that copy the reorganized directory, e.g. "LG_HW_16192" to /mnt of the sd card of the board, e.g. ZCU102.
+After that copy the reorganized directory, e.g. "LG_HW_4096" to /mnt of the sd card of the board, e.g. ZCU102.
 
-Copy BOOT.BIN, image.ub in "LG_HW_16192" to /mnt in sd card.
+Copy BOOT.BIN, image.ub in "LG_HW_4096" to /mnt in sd card.
 
 Insert the card back to the board and reboot it. Notice that you need to copy the two files above to /mnt and reboot whenever you are going to run a different accelerator.
 
-After rebooting, cd /LG_HW_16192/run/run, run the accelerator:
+After rebooting, cd /LG_HW_4096/run/run, run the accelerator:
 
 ./c-rnn.elf
 
@@ -133,13 +133,13 @@ After hours of compilation (4 or 5 hours for me), you will get some compiled fil
 
 ./organize_sdcard.sh
 
-After that copy the reorganized directory, e.g. "LG_HW_16192" to /mnt of the sd card of the board, e.g. ZCU102. Notice that here we may change the directory name to "LG_SW_16192" indicates it's a software version.
+After that copy the reorganized directory, e.g. "LG_HW_4096" to /mnt of the sd card of the board, e.g. ZCU102. Notice that here we may change the directory name to "LG_SW_4096" indicates it's a software version.
 
-Copy BOOT.BIN, image.ub in "LG_SW_16192" to /mnt in sd card.
+Copy BOOT.BIN, image.ub in "LG_SW_4096" to /mnt in sd card.
 
 Insert the card back to the board and reboot it. Notice that you need to copy the two files above to /mnt and reboot whenever you are going to run a different accelerator.
 
-After rebooting, cd /LG_SW_16192/run/run, run the accelerator:
+After rebooting, cd /LG_SW_4096/run/run, run the accelerator:
 
 ./c-rnn.elf
 

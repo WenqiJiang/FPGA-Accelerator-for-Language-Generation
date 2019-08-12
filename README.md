@@ -5,12 +5,16 @@ The accelerator for small model achieves 18.91 Gops, which is 30x speed up compa
 ## Branches
 ### These branches are w.r.t. different model sizes discussed in our paper (link here):
 small_model_4096
+
 medium_model_6144
+
 large_model_16192
+
 large_model_16192_opt (optimized architecture for large model)
 
 ### These are aborted branches:
 prefix_sum
+
 tile
 
 

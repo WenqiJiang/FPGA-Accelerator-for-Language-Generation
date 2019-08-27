@@ -383,7 +383,7 @@ for (LDATA_T tile_iter = 0; tile_iter < BATCH_SIZE / COMPUTE_UNROLL;
 void fc_BRAM_part(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
                   FDATA_T kernel[FC_OUTPUT_SIZE_BRAM * FC_INPUT_SIZE],
                   FDATA_T bias[FC_OUTPUT_SIZE_BRAM],
-                  FDATA_T max_output_feature_map[BATCH_SIZE]
+                  FDATA_T max_output_feature_map[BATCH_SIZE],
                   IDATA_T max_idx[BATCH_SIZE]) {
   //  input_feature_map: BATCH_SIZE * FC_INPUT_SIZE (None * 128)
   //  bias: FC_OUTPUT_SIZE (6144)
@@ -420,7 +420,7 @@ void fc_BRAM_part(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
 void fc_DRAM_part(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
                   FDATA_T kernel[FC_OUTPUT_SIZE_DRAM * FC_INPUT_SIZE],
                   FDATA_T bias[FC_OUTPUT_SIZE_DRAM],
-                  FDATA_T max_output_feature_map[BATCH_SIZE]
+                  FDATA_T max_output_feature_map[BATCH_SIZE],
                   IDATA_T max_idx[BATCH_SIZE]) {
   //  input_feature_map: BATCH_SIZE * FC_INPUT_SIZE (None * 128)
   //  bias: FC_OUTPUT_SIZE (6144)

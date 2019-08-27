@@ -76,14 +76,14 @@ void rnn_save_output_state(FDATA_T output_state_reg[BATCH_SIZE],
 void fc_BRAM_part(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
                   FDATA_T kernel[FC_OUTPUT_SIZE_BRAM * FC_INPUT_SIZE],
                   FDATA_T bias[FC_OUTPUT_SIZE_BRAM],
-                  FDATA_T max_output_feature_map[BATCH_SIZE]
+                  FDATA_T max_output_feature_map[BATCH_SIZE],
                   IDATA_T max_idx[BATCH_SIZE]);
 
 // compute a batch of state using weights stored in DRAM
 void fc_DRAM_part(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
                   FDATA_T kernel[FC_OUTPUT_SIZE_DRAM * FC_INPUT_SIZE],
                   FDATA_T bias[FC_OUTPUT_SIZE_DRAM],
-                  FDATA_T max_output_feature_map[BATCH_SIZE]
+                  FDATA_T max_output_feature_map[BATCH_SIZE],
                   IDATA_T max_idx[BATCH_SIZE]);
 
 // load one row of kernel from BRAM to register

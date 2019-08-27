@@ -8,7 +8,7 @@
 
 #define WORD_NUM            16192
 #define WORD_NUM_BRAM       6144  // store part of the weights in BRAM
-#define WORD_NUM_DRAM       WORD_NUM - WORD_NUM_BRAM
+#define WORD_NUM_DRAM       (WORD_NUM - WORD_NUM_BRAM)
 #define WORD_SIZE           100
 
 // == RNN layers ===============================================================

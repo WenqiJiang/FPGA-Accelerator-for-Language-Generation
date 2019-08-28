@@ -379,6 +379,33 @@ for (LDATA_T tile_iter = 0; tile_iter < BATCH_SIZE / COMPUTE_UNROLL;
   }
 }
 
+void rnn_save_output_state(FDATA_T output_state_reg[BATCH_SIZE],
+                           FDATA_T bias, LDATA_T col,
+                           FDATA_T output_state[BATCH_SIZE * RNN_STATE_SIZE]) {
+
+  // the output state in register is not the final result,
+  // add bias to finish computing and store them into BRAM
+  // the output state starts from a certain index (decided when function call)
+  // output state memory layout [BATCH_SIZE][RNN_STATE_SIZE]
+  // output_state_reg + bias --- load to ---> output_state
+
+  for (LDATA_T batch_iter = 0; batch_iter < BATCH_SIZE; batch_iter++) {
+// #pragma HLS UNROLL factor=4
+#pragma HLS PIPELINE
+
+    FDATA_T tmp = bias + output_state_reg[batch_iter];
+    LDATA_T output_state_index = batch_iter * RNN_STATE_SIZE + col;
+
+    output_state[output_state_index] =
+// if in Vivado HLS, use this:
+//        hls::tanh<FIXED_W_LENGTH, FIXED_I_LENGTH>(tmp);
+// if in SDSoC, use this:
+        FDATA_T(tanh(TOFLOAT(tmp)));
+// if neither works, use this (but result wouldn't be correct)
+//        tmp;
+  }
+}
+
 // compute a batch of state using weights stored in BRAM
 void fc_BRAM_part(FDATA_T input_feature_map[BATCH_SIZE * FC_INPUT_SIZE],
                   FDATA_T kernel[FC_OUTPUT_SIZE_BRAM * FC_INPUT_SIZE],
